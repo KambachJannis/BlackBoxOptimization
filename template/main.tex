@@ -1,0 +1,52 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{cite}
+\usepackage{graphicx}
+
+\title{DA2 Case Study - Group X}
+\author{John Doe (402359), Jane Doe (349024),\\ Jones Doe (349274), James Doe (303048)}
+
+
+\date{9th July 2019}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+
+Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet \cite{eiben2015intro}.
+
+\section{Figures and Tables}
+
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{@{}p{0.2\textwidth}p{0.2\textwidth}@{}}
+        \hline
+		{\bf Column 1} & {\bf Column 2}\\ \hline
+         Value 1.1 &  Value 1.2\\
+         Value 2.1 & Value 2.2 \\
+         \hline
+    \end{tabular}
+    \caption{Exemplary table}
+    \label{tab:exp_table}
+\end{table}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=1\textwidth]{figures/example_figure.pdf}
+    \caption{Exemplary figure}
+    \label{fig:exp_figure}
+\end{figure}
+
+Use \texttt{\textbackslash ref} to reference your figures and tables. E.g. this a reference for Figure \ref{fig:exp_figure} and Table \ref{tab:exp_table}.
+
+\section{Conclusion}
+Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}
