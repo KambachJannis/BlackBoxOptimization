@@ -67,6 +67,18 @@ batch_apirequest = function(input, func, endpoint){
 
 ###########################################################
 ##### Optimization #####
+library(nsga2R)
+
+testfunc <- function(x) 
+{
+  y1 <- 2*x[1]
+  y2 <- 3*x[2]+x[3]
+  return(c(y1,y2))
+}
+
+results <- nsga2R(fn=testfunc, varNo=3, objDim=2, lowerBounds=rep(0,3), upperBounds=rep(1,3), popSize=50, tourSize=2, generations=50)
+plot(results$objectives)
+
 # Test calls
 
 samples = as.data.frame(expand.grid(seq(0,20,by=1),seq(0,20,by=1)))
