@@ -68,16 +68,21 @@ batch_apirequest = function(input, func, endpoint){
 ###########################################################
 ##### Optimization #####
 library(nsga2R)
+library(ecr)
 
-testfunc <- function(x) 
-{
+testfunc <- function(x){
   y1 <- 2*x[1]
-  y2 <- 3*x[2]+x[3]
+  y2 <- -2*x[1]+3*x[2]+x[3]
   return(c(y1,y2))
 }
 
-results <- nsga2R(fn=testfunc, varNo=3, objDim=2, lowerBounds=rep(0,3), upperBounds=rep(1,3), popSize=50, tourSize=2, generations=50)
+# NSGA-II
+results <- nsga2R(fn=testfunc, objDim=2, varNo=3, lowerBounds=rep(0,3), upperBounds=rep(1,3), popSize=100, tourSize=2, generations=50)
 plot(results$objectives)
+
+# SMS-EMOA
+results2 <- smsemoa(fitness.fun=testfunc, n.objectives=2, n.dim=3, minimize=rep(T,2), lower=rep(0,3), upper=rep(1,3), mu=100, terminators = list(stopOnIters(100)))
+plot(results2$pareto.front)
 
 # Test calls
 
