@@ -67,22 +67,68 @@ batch_apirequest = function(input, func, endpoint){
 
 ###########################################################
 ##### Optimization #####
-library(nsga2R)
 library(ecr)
+library(MOEADr)
+library(smoof)
 
-testfunc <- function(x){
+### just for testing how this works
+testfunc_help <- function(x){
   y1 <- 2*x[1]
   y2 <- -2*x[1]+3*x[2]+x[3]
   return(c(y1,y2))
 }
 
-# NSGA-II
-results <- nsga2R(fn=testfunc, objDim=2, varNo=3, lowerBounds=rep(0,3), upperBounds=rep(1,3), popSize=100, tourSize=2, generations=50)
-plot(results$objectives)
+testfunc <- function(X, ...){
+  t(apply(X, MARGIN = 1, FUN = testfunc_help))
+}
 
-# SMS-EMOA
-results2 <- smsemoa(fitness.fun=testfunc, n.objectives=2, n.dim=3, minimize=rep(T,2), lower=rep(0,3), upper=rep(1,3), mu=100, terminators = list(stopOnIters(100)))
+### NSGA-II
+results <- nsga2(fitness.fun=testfunc_help, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(100L)))
+plot(results$pareto.front)
+
+### SMS-EMOA
+results2 <- smsemoa(fitness.fun=testfunc_help, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(100L)))
 plot(results2$pareto.front)
+
+### MOEA/D
+## 1: prepare test problem
+ZDT1 <- make_vectorized_smoof(prob.name  = "ZDT1",
+                              dimensions = 30)
+
+## 2: set input parameters
+problem   <- list(name       = "testfunc",
+                  xmin       = rep(0, 30),
+                  xmax       = rep(1, 30),
+                  m          = 2)
+decomp    <- list(name       = "sld", H = 99)
+neighbors <- list(name       = "lambda",
+                  T          = 20,
+                  delta.p    = 1)
+aggfun    <- list(name       = "wt")
+variation <- list(list(name  = "sbx",
+                       etax  = 20, pc = 1),
+                  list(name  = "polymut",
+                       etam  = 20, pm = 0.1),
+                  list(name  = "truncate"))
+update    <- list(name       = "standard", 
+                  UseArchive = FALSE)
+scaling   <- list(name       = "none")
+constraint<- list(name       = "none")
+stopcrit  <- list(list(name  = "maxiter",
+                       maxiter  = 200))
+showpars  <- list(show.iters = "dots",
+                  showevery  = 10)
+seed      <- NULL
+
+## 3: run MOEA/D
+out1 <- moead(problem = problem, 
+              decomp = decomp, aggfun = aggfun, neighbors = neighbors, variation = variation, 
+              update = update, constraint = constraint, scaling = scaling, stopcrit = stopcrit,
+              showpars = showpars, seed = seed)
+
+## 4: plot results
+plot(out1$Y[,1], out1$Y[,2])
+
 
 # Test calls
 
