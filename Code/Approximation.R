@@ -1,87 +1,60 @@
 ###########################################################
-##### API Client #####
-
-# Config Data
-base="optim.uni-muenster.de:5000/"
-token="77aa1a29dc734cd0ad7ef71503b860ad"
-
-# Functionality
-if (!require("httr")) library(httr)
-if (!require("jsonlite")) library(jsonlite)
-apirequest = function(input, func, endpoint){
-   if(endpoint=="api"){
-     return("Don't call the real api, you're wasting our budget! :D")
-   }
-  input_intermediate = 1:nrow(input)
-  for(i in 1:nrow(input)){
-    input_intermediate[i]=paste0(input[i,],collapse = ",")
-  }
-
-  data=paste0(input_intermediate, collapse =";")
-  
-  call= paste(base,"/",endpoint,"/",func,"/",token,"/",data,sep="")
-  
-  #API-Request
-  data_raw=GET(call)
-  
-  #extracting content from API response, convert to JSON
-  data_json=content(data_raw,"text")
-  
-
-  #parsing the JSON format
-  data_json_parsed = fromJSON(data_json, flatten = TRUE)
-  
-  #Check if error occured
-  if (names(data_json_parsed)[1]!= "data") {
-    print(data_json)
-    return(data_json_parsed)
-  }
-  #converting to a data frame
-  data_df = as.data.frame(data_json_parsed)
-  
-  #Convert data to string
-  data_string=as.character(data_df$data)
-  
-  #Replace '[' and ']'
-  data_string=gsub("\\[","",data_string)
-  data_string=gsub("\\]","",data_string)
-  
-  #Seperate data
-  split=strsplit(data_string,split=", ")
-  split=unlist(split)
-  
-  #convert to double
-  data=as.double(split)
-  return (data)
-}
-
-###########################################################
-# Helper function for batch requests
-batch_apirequest = function(input, func, endpoint){
-  results = c()
-  for(i in 1:ceiling(nrow(input)/50)){
-    results = c(results,apirequest(input[(1+(i-1)*50):min(nrow(input),i*50),], func, endpoint))
-  }
-  return(results)
-}
-
+source("Base.R")
 ###########################################################
 ##### Approximation of Value Functions #####
+###########################################################
+#### Test calls and Plots ####
 
-#Test
-samples = as.data.frame(expand.grid(seq(0,20,by=1),seq(0,20,by=1)))
+samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
 colnames(samples)=c("x","y")
-response = batch_apirequest(samples, 2, "api-test2D")
-samples$f = response #the function value
+samples$f1 = batch_apirequest(samples[1:2], 1, "api-test2D")
+samples$f2 = batch_apirequest(samples[1:2], 2, "api-test2D")
+
+plot_ly(samples) %>% add_trace(x=~f1,y=~f2,type="scatter",mode="markers")
 
 # Plotting example (3D plot)
 library(plotly)
 
-plot_ly(samples, intensity = ~f,
-        colors = colorRamp(c("blue","green", "red"))) %>%
-  add_trace(x = ~x, y = ~y, z = ~f, type = 'mesh3d') %>%
-  layout(title="Function Landscape Approximation",
-         scene = list(xaxis = list(title="X"),
-                      yaxis = list(title="Y"),
-                      zaxis = list(title="Function Value")))
+fplot(samples,"f1")
+fplot(samples,"f2")
+f1f2plot(samples)
 
+# 3D
+samples3D = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1),seq(-5,5,by=1)))
+colnames(samples3D)=c("x","y","z")
+samples3D$f1 = batch_apirequest(samples3D[1:3], 1, "api-test3D")
+samples3D$f2 = batch_apirequest(samples3D[1:3], 2, "api-test3D")
+
+fplot(samples3D,"f2")
+
+###########################################################
+#### First approximation tries ####
+samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
+colnames(samples)=c("x","y")
+samples$f1 = batch_apirequest(samples[,1:2], 1, "api-test2D")
+samples$f2 = batch_apirequest(samples[,1:2], 2, "api-test2D")
+
+library(mlr)
+fplot(samples,"f1")
+
+# Learn f1
+f1.task = makeRegrTask(data = samples, target = "f1")
+f1.lrn.svm = makeLearner(cl = "regr.ksvm",id="svm")
+f1.mdl.svm = train(learner=f1.lrn.svm, task=f1.task)
+
+new_samples = as.data.frame(expand.grid(seq(-4.5,4.5,by=1),seq(-4.5,4.5,by=1)))
+colnames(new_samples)=c("x","y")
+new_samples$f1 = batch_apirequest(new_samples[,1:2], 1, "api-test2D")
+new_samples$f2 = batch_apirequest(new_samples[,1:2], 2, "api-test2D")
+
+samples = rbind(samples,new_samples)
+
+f1.pred.svm = predict(f1.mdl.svm, newdata = new_samples)
+performance(pred = f1.pred.svm, measures = mse)
+
+f1.pred.all=predict(f1.mdl.svm, newdata = samples)
+samples$f1pred = f1.pred.all$data$response
+fplot(samples,"f1pred")
+
+f1f2plot(samples)
+f1f2plot(samples,f_2="f1pred",scaleit=F)
