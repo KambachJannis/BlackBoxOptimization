@@ -4,6 +4,7 @@ source("Base.R")
 ###########################################################
 ##### Optimization #####
 library(ecr)
+library(nsga2R)
 library(MOEADr)
 library(smoof)
 
@@ -19,11 +20,11 @@ testfunc <- function(X, ...){
 }
 
 ### NSGA-II
-results <- nsga2(fitness.fun=testfunc_help, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(100L)))
+results <- ecr::nsga2(fitness.fun=zdt1, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(100L)))
 plot(results$pareto.front)
 
 ### SMS-EMOA
-results2 <- smsemoa(fitness.fun=testfunc_help, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(100L)))
+results2 <- ecr::smsemoa(fitness.fun=zdt1, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(100L)))
 plot(results2$pareto.front)
 
 ### MOEA/D
@@ -32,7 +33,7 @@ ZDT1 <- make_vectorized_smoof(prob.name  = "ZDT1",
                               dimensions = 30)
 
 ## 2: set input parameters
-problem   <- list(name       = "testfunc",
+problem   <- list(name       = "ZDT1",
                   xmin       = rep(0, 30),
                   xmax       = rep(1, 30),
                   m          = 2)
