@@ -6,7 +6,6 @@ source("Base.R")
 library(ecr)
 library(nsga2R)
 library(MOEADr)
-library(smoof)
 
 ### just for testing how this works
 testfunc_help <- function(x){
@@ -20,11 +19,11 @@ testfunc <- function(X, ...){
 }
 
 ### NSGA-II
-results <- ecr::nsga2(fitness.fun=zdt1, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(100L)))
+results <- ecr::nsga2(fitness.fun=testfunc_help, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(1000L)))
 plot(results$pareto.front)
 
 ### SMS-EMOA
-results2 <- ecr::smsemoa(fitness.fun=zdt1, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(100L)))
+results2 <- ecr::smsemoa(fitness.fun=testfunc_help, n.objectives=2, n.dim=3, lower=rep(0,3), upper=rep(1,3), mu=100L, terminators=list(stopOnIters(10000L)))
 plot(results2$pareto.front)
 
 ### MOEA/D
@@ -33,7 +32,7 @@ ZDT1 <- make_vectorized_smoof(prob.name  = "ZDT1",
                               dimensions = 30)
 
 ## 2: set input parameters
-problem   <- list(name       = "ZDT1",
+problem   <- list(name       = "testfunc",
                   xmin       = rep(0, 30),
                   xmax       = rep(1, 30),
                   m          = 2)
@@ -52,7 +51,7 @@ update    <- list(name       = "standard",
 scaling   <- list(name       = "none")
 constraint<- list(name       = "none")
 stopcrit  <- list(list(name  = "maxiter",
-                       maxiter  = 200))
+                       maxiter  = 1000))
 showpars  <- list(show.iters = "dots",
                   showevery  = 10)
 seed      <- NULL
