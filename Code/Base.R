@@ -64,13 +64,18 @@ library(mlr)
 
 ###########################################################
 # Helper function for batch requests
-batch_apirequest = function(input, func, endpoint){
+batch_apirequest = function(input, func, endpoint, call_counter=0){
   results = c()
   for(i in 1:ceiling(nrow(input)/50)){
     results = c(results,apirequest(input[(1+(i-1)*50):min(nrow(input),i*50),], func, endpoint))
   }
-  return(results)
+  call_counter = call_counter + nrow(input)
+  return(list(results,call_counter))
 }
+
+testf = function() {
+  call_counter <<- call_counter + 50
+  print(call_counter)}
 
 # Helper functions for plotting
 fplot = function(sampledata,f,type3d="markers"){
