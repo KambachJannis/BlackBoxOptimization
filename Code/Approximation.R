@@ -75,81 +75,115 @@ f1f2plot(samples,f_2="f1pred",scaleit=F)
 
 ###########################################################
 #### Learn f1 with resampling
-samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
-colnames(samples)=c("x","y")
-samples$f1 = batch_apirequest(samples[,1:2], 1, "api-test2D")
-samples$f2 = batch_apirequest(samples[,1:2], 2, "api-test2D")
 
-f1.task = makeRegrTask(data = samples[,1:3], target = "f1")
+# Define dense grid for observation selection
+max_samples = 1000 # adjust so it is not too computationally expensive
+densegrid = as.data.frame(expand.grid(seq(-5,5,length.out = floor(sqrt(max_samples))),seq(-5,5,length.out = floor(sqrt(max_samples)))))
+colnames(densegrid)=c("x","y")
+
+# Get first observations
+f1.samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
+colnames(f1.samples)=c("x","y")
+f1.samples$f1 = batch_apirequest(samples %>% select(x,y), 1, "api-test2D")
+
+f2.samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
+colnames(f2.samples)=c("x","y")
+f2.samples$f2 = batch_apirequest(samples %>% select(x,y), 2, "api-test2D")
+
+# Define tasks and learners
+f1.task = makeRegrTask(data = f1.samples, target = "f1")
 f1.lrn.svm = makeLearner(cl = "regr.ksvm",id="svm")
+
+f2.task = makeRegrTask(data = f2.samples, target = "f2")
+f2.lrn.svm = makeLearner(cl = "regr.ksvm",id="svm")
 
 #### Perform all resampling and model selection here
 # TODO
 # make nested resampling (with hyperparameter tuning) to find best learner class
 # choose best learner, tune hyperparameters on all observations
 # Output: One learner class with trained hyperparameters (we call it "best learner")
+f1.lrn.best = f1.lrn.svm # placeholder
+f2.lrn.best = f2.lrn.svm # placeholder
 
-#### Next: Identify new observations to fetch from API
+#### Analyse noise and model variance
 # Define resampling strategy
 boots = makeResampleDesc(method = "Bootstrap", iters=100, predict="both")
 
-# resample best learner (for exampel svm)
-f1.perf.svm = resample(f1.lrn.svm, f1.task, boots, measures = mse, models=T)
-# For each observation, calculate mean regression ^y_i (meanpred) and model variance sigma²_^y_i (varpred)
-f1.preds.svm = as.data.frame(f1.perf.svm$pred)
-f1.predinter.svm = f1.preds.svm %>% group_by(id) %>%
-  summarize(f1_meanpred = mean(response),
-            f1_varpred = var(response))
+# Resample best learner
+f1.perf.best = resample(f1.lrn.best, f1.task, boots, measures = mse, models=T)
 
-samples = cbind(samples,f1.predinter.svm)
+# For each observation, calculate mean regression ^y_i (meanpred) and model variance sigma²_^y_i (varpred)
+f1.pred = as.data.frame(f1.perf.best$pred)
+f1.predstat = f1.preds %>% group_by(id) %>%
+  summarize(meanpred = mean(response),
+            varpred = var(response))
+
+f1.predstat = cbind(f1.samples,f1.predstat)
 
 # Build training set of residuals (error variance / noise)
-samples = samples %>% mutate(f1_r = pmax((f1-f1_meanpred)**2 - f1_varpred,0))
-
+f1.predstat = f1.predstat %>% mutate(r2 = pmax((f1-meanpred)**2 - varpred,0))
 # Make training set for noise estimation
-D = samples %>% select("x","y","f1_r")  # TODO add z dimension
+D = f1.predstat %>% select("x","y","r")  # TODO add z dimension
+D.task = makeRegrTask(data=D,target="r")
+D.measure = makeMeasure(id = "C_BS",
+              minimize = TRUE,
+              properties = c("regr", "response"),
+              fun = function(task, model, pred, extra.args){
+                0.5 * sum(log(pred$data$response) + pred$data$truth/pred$data$response)})
 
-D.task = makeRegrTask(data=D,target="f1_r")
-D.lrn = makeLearner("regr.nnet",id="noise_nnet")
+# Make learner and tune hyperparameters
+D.lrn = makeLearner("regr.svm",id="noise_nnet")
+D.paramset = makeParamSet(makeDiscreteParam("epsilon",values = 0:10)) # Todo select parameters to tune
+D.contrl = makeTuneControlGrid()
+D.resDesc=makeResampleDesc("CV", iters = 10)
+D.tunedparams = tuneParams(learner=D.lrn,task=D.task,
+                              resampling=D.resDesc,
+                              measures = D.measure,
+                              par.set = D.paramset,control = D.contrl)
+D.lrn=setHyperPars(D.lrn,k=D.tunedparams$epsilon)
 
-# TODO custom error function
+# Train learner
 D.mdl = train(task=D.task,learner=D.lrn)
 
-# Tune (maybe)
+# Evaluate predictions (mean squared error)
 D.pred = predict(D.mdl, newdata = D)
-# evaluate predictions (mean squared error)
-performance(pred = D.pred, measures = rmse)
+performance(pred = D.pred, measures = mse)
 
-
-# then make new predictions on a dense grid
-max_samples = 1000 # adjust so it is not too computationally expensive
-densegrid = as.data.frame(expand.grid(seq(-5,5,length.out = floor(sqrt(max_samples))),seq(-5,5,length.out = floor(sqrt(max_samples)))))
-colnames(densegrid)=c("x","y")
-
-# compute model variance sigma²_^y_i (varpred) for every observation in grid
-Mdl.pred = lapply(1:length(f1.perf.svm$models), function(m) {
-  data.frame(x=densegrid$x,y=densegrid$y,model=m,pred=predict(f1.perf.svm$models[[m]], newdata = densegrid)$data$response)
+#### Select new observations to fetch from API, based on variance
+# Compute model variance sigma²_^y_i (varpred) for every observation in grid
+f1.grid.mdls.pred = lapply(1:length(f1.perf.best$models), function(m) {
+  data.frame(x=densegrid$x,y=densegrid$y,model=m,pred=predict(f1.perf.best$models[[m]], newdata = densegrid)$data$response)
 })
-Mdl.predictions = do.call(rbind,Mdl.pred)
-Mdl.predictions = Mdl.predictions %>% group_by(x,y) %>%
-  summarize(f1_meanpred = mean(pred),
-            f1_varpred = var(pred))
+f1.grid = do.call(rbind,f1.grid.mdls.pred)
+f1.grid = f1.grid %>% group_by(x,y) %>%
+  summarize(meanpred = mean(pred),
+            varpred = var(pred))
 
-# Estimate noise variance using neural net
+# Estimate noise variance
 D.pred = predict(D.mdl, newdata = densegrid)
-samples$f1_varnoise = D.pred$data$response
-# TODO
+f1.grid$varnoise = D.pred$data$response
 
 # Add both model variance and noise variance together to get total variance
-# TODO
+f1.grid = f1.grid %>% mutate(vartotal=varpred+varnoise)
 
 # Select observation(s) with highest total variance to be fetched from API
-# TODO
+num_observations=2
+f1.grid = f1.grid %>% arrange(desc(vartotal))
+f1.fetch = f1.grid[1:numobservations,]
+
+# Check whether any of the observations have been fetched already
+f1.already_fetched = f1.samples %>% select("x","y") %>%
+  intersect(f1.fetch %>% select("x","y"))
+if(nrow(f1.already_fetched)>0){
+  print(paste(nrow(f1.already_fetched),"observations have been fetched already."))
+  f1.fetch = f1.fetch %>% setdiff(f1.already_fetched)
+}
+
+# Call API and add new observations to sampleset
+f1.fetch$f1 = batch_apirequest(samples %>% select(x,y), 1, "api-test2D")
+f1.samples = f1.samples %>% union(f1.fetch)
 
 # LOOP
-
-
-
 
 fplot(samples,f = "sdpred")
 
