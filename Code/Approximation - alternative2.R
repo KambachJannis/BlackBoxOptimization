@@ -122,16 +122,21 @@ while(call_counter <= max_calls - new_observations_per_call & round<5) {
   
   #### Analyse noise and model variance
   # Define resampling strategy
-  boots = makeResampleDesc(method = "Bootstrap", iters=100, predict="both")
+  loo = makeResampleDesc(method = "LOO", predict="both")
   
   # Resample best learner
-  f1.perf.best = resample(f1.lrn.best, f1.task, boots, measures = mse, models=T)
+  f1.perf.best = resample(f1.lrn.best, f1.task, loo, measures = rmse, models=T)
   
-  # For each observation, calculate mean regression ^y_i (meanpred) and model variance sigma²_^y_i (varpred)
-  f1.pred = as.data.frame(f1.perf.best$pred)
-  f1.predstat = f1.pred %>% group_by(id) %>%
-    summarize(meanpred = mean(response),
-              varpred = var(response))
+  View(
+    f1.perf.best$pred$data %>% filter(set=="test") %>%
+    select(id,iter) %>% inner_join(f1.perf.best$measures.test,by="iter")
+  )
+  
+  (f1.perf.best$measures.test$rmse[2]**2+
+      316*(f1.perf.best$measures.train$rmse[2]**2))/317
+  
+  f1.perf.best$pred$data %>% group_by(iter) %>%
+    summarize(rmse=sqrt(mean((truth-response)**2)))
   
   f1.predstat = cbind(f1.samples,f1.predstat)
   f1.predstat = f1.predstat %>% mutate(rmse=sqrt((f1-meanpred)**2))
@@ -222,11 +227,11 @@ toCol = function(x,resolution=50){
 # Comparing the benchmark results
 plot(f1.fetch_n$x,f1.fetch_n$y,xlim=c(-5,5),ylim=c(-5,5))
 f1f2plot(benchmark,f_1="rse1",f_2="rse5",scaleit=F)
-f1f2plot(benchmark,f_1="f1",f_2="resp5",scaleit=F)
+f1f2plot(benchmark,f_1="f1",f_2="resp1",scaleit=F)
 
 fplot(benchmark,f="f1")
 
-plot_ly(benchmark %>% mutate(err=rse3-rse2),
+plot_ly(benchmark %>% mutate(err=rse2-rse1),
   type = 'scatter',
   mode='markers',
   x=~x,

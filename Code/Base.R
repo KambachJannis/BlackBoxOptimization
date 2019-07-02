@@ -107,8 +107,8 @@ f1f2plot = function(sampledata,f_1="f1",f_2="f2",scaleit=T){
     sampledata = sampledata %>%
     mutate_at(.vars = setdiff(colnames(sampledata),c("x","y","z")),.funs = function(x){x/max(x)})}
   plot_ly(sampledata) %>%
-    add_trace(x = ~x, y = ~y, z = as.formula(paste("~",f_1,sep="")), type = 'mesh3d') %>%
-    add_trace(x = ~x, y = ~y, z = as.formula(paste("~",f_2,sep="")), type = 'mesh3d') %>%
+    add_trace(x = ~x, y = ~y, z = as.formula(paste("~",f_1,sep="")), type = 'mesh3d',name=f_1) %>%
+    add_trace(x = ~x, y = ~y, z = as.formula(paste("~",f_2,sep="")), type = 'mesh3d',name=f_2) %>%
     layout(title="Function Landscape Approximation",
            scene = list(xaxis = list(title="X"),
                         yaxis = list(title="Y"),
