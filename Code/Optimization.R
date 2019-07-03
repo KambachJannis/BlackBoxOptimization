@@ -93,11 +93,23 @@ opti_3D_functions_moead <- function(X, ...){
 }
 
 ### NSGA-II
-results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(0,3), upper = rep(20,3), mu = 100L, terminators = list(stopOnIters(1000L)))
-plot(results_3D.nsga2$pareto.front)
+results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                               mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.5, lower = rep(-5,3), upper = rep(5,3)),
+                               recombinator = setup(recSBX, eta = 15, p = 0.6, lower = rep(-5,3), upper = rep(5,3)),
+                               terminators = list(stopOnIters(500L)))
+plot(results_3D.nsga2$pareto.front, xlim = c(-150,400), ylim = c(45,70))
+
+points(results_3D.nsga2_02_07_standard$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "red")
+points(results_3D.nsga2_01_09$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "gold")
+points(results_3D.nsga2_05_09$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "green")
+points(results_3D.nsga2_05_06$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "red")
+points(results_3D.nsga2_07_06$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "blue")
 
 ### SMS-EMOA
-results_3D.smsemoa <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(0,3), upper = rep(20,3), mu = 100L, terminators = list(stopOnIters(10000L)))
+results_3D.smsemoa <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(0,3), upper = rep(20,3),
+                                   mu = 100L, lambda = mu, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                   recombinator = setup(recSBX, eta = 15, p = 0.7, lower = lower, upper = upper),
+                                   terminators = list(stopOnIters(30000L)))
 plot(results_3D.smsemoa$pareto.front)
 
 ### MOEA/D
@@ -120,7 +132,7 @@ update    <- list(name       = "standard",
 scaling   <- list(name       = "none")
 constraint<- list(name       = "none")
 stopcrit  <- list(list(name  = "maxiter",
-                       maxiter  = 1000))
+                       maxiter  = 10000))
 showpars  <- list(show.iters = "dots",
                   showevery  = 10)
 seed      <- NULL
@@ -133,12 +145,12 @@ plot(results_3D.moead$Y[,1], results_3D.moead$Y[,2])
 
 #### Test calls ####
 ### 2D functions
-samples2D_f1 = as.data.frame(expand.grid(seq(0,20,by=1),seq(0,20,by=1)))
+samples2D_f1 = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
 colnames(samples2D_f1)=c("x","y")
 response2D_f1 = batch_apirequest(samples2D_f1, 1, "api-test2D")
 samples2D_f1$f = response2D_f1
 
-samples2D_f2 = as.data.frame(expand.grid(seq(0,20,by=1),seq(0,20,by=1)))
+samples2D_f2 = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
 colnames(samples2D_f2)=c("x","y")
 response2D_f2 = batch_apirequest(samples2D_f2, 2, "api-test2D")
 samples2D_f2$f = response2D_f2
@@ -160,7 +172,7 @@ plot_ly(samples2D_f2, intensity = ~f,
                       yaxis = list(title="Y"),
                       zaxis = list(title="Function Value")))
 
-samples_2D_both <- as.data.frame(expand.grid(seq(0,20,by=1),seq(0,20,by=1)))
+samples_2D_both <- as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
 colnames(samples_2D_both)=c("x","y")
 samples_2D_both$f1 <- response2D_f1
 samples_2D_both$f2 <- response2D_f2
@@ -168,12 +180,12 @@ samples_2D_both$f2 <- response2D_f2
 f1f2plot(samples_2D_both,scaleit=T)
 
 ### 3D functions
-samples3D_f1 = as.data.frame(expand.grid(seq(0,20,by=2),seq(0,20,by=2),seq(0,20,by=2)))
+samples3D_f1 = as.data.frame(expand.grid(seq(-5,5,by=2),seq(-5,5,by=2),seq(-5,5,by=2)))
 colnames(samples3D_f1)=c("x","y","z")
 response3D_f1 = batch_apirequest(samples3D_f1, 1, "api-test3D")
 samples3D_f1$f = response3D_f1
 
-samples3D_f2 = as.data.frame(expand.grid(seq(0,20,by=2),seq(0,20,by=2),seq(0,20,by=2)))
+samples3D_f2 = as.data.frame(expand.grid(seq(-5,5,by=2),seq(-5,5,by=2),seq(-5,5,by=2)))
 colnames(samples3D_f2)=c("x","y","z")
 response3D_f2 = batch_apirequest(samples3D_f2, 2, "api-test3D")
 samples3D_f2$f = response3D_f2
