@@ -226,7 +226,7 @@ f1f2plot(benchmark,f_1="f1",f_2="resp5",scaleit=F)
 
 fplot(benchmark,f="f1")
 
-plot_ly(benchmark %>% mutate(err=rse3-rse2),
+plot_ly(benchmark %>% mutate(err=rse3-rse),
   type = 'scatter',
   mode='markers',
   x=~x,

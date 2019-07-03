@@ -115,4 +115,8 @@ f1f2plot = function(sampledata,f_1="f1",f_2="f2",scaleit=T){
                         zaxis = list(title="Function Value")))
 }
 
+toCol = function(x,resolution=50){
+  color=resolution*(x-min(x))/(max(x)-min(x))
+  viridisLite::viridis(resolution)[floor(color)]
+}
 

@@ -26,8 +26,11 @@ colnames(densegrid)=c("x","y")
 call_counter=0
 # Maximum number of calls that can be made in loop
 max_calls = 1121
+
+# Number of observations called at the beginning
+number_of_first_observations=200
 # Number of new observations called per loop run
-new_observations_per_call=50
+new_observations_per_call=10
 
 # Should noise be included in prediction interval estimation?
 include_noise = F
@@ -37,8 +40,9 @@ benchresults = c()
 benchbelieve = c()
 benchbelieve_old = c()
 
+
 # Get first observations
-f1.samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
+f1.samples = as.data.frame(expand.grid(seq(-5,5,length.out=sqrt(number_of_first_observations)),seq(-5,5,length.out=sqrt(number_of_first_observations))))
 colnames(f1.samples)=c("x","y")
 res = batch_apirequest(f1.samples %>% select(x,y), 1, "api-test2D",call_counter)
 f1.samples$f1 = res[[1]]
@@ -52,7 +56,7 @@ call_counter= res[[2]]
 
 round=0
 }
-while(call_counter <= max_calls - new_observations_per_call & round<5) {
+while(call_counter <= max_calls - new_observations_per_call & round<10) {
   {
     {
   round = round +1
@@ -74,22 +78,22 @@ while(call_counter <= max_calls - new_observations_per_call & round<5) {
   # Output: One learner class with trained hyperparameters (we call it "best learner")
   
   # Make learner and tune hyperparameters
-  forest.paramset = makeParamSet(
-    makeIntegerParam("mtry",lower=2,upper=10),
-    makeIntegerParam("nodesize",lower=10,upper=50)
-  ) # select parameters to tune
-  
-  forest.contrl = makeTuneControlRandom(maxit = 50)
-  forest.resDesc=makeResampleDesc("CV", iters = 10)
-  
-  forest.tunedparams = tuneParams(learner=f1.lrn.forest,task=f1.task,
-                             resampling=forest.resDesc,
-                             measures = list(rmse),
-                             par.set = forest.paramset,
-                             control = forest.contrl)
-  
-  f1.lrn.forest=setHyperPars(f1.lrn.forest,
-                             par.vals=forest.tunedparams$x)
+  # forest.paramset = makeParamSet(
+  #   makeIntegerParam("mtry",lower=2,upper=10),
+  #   makeIntegerParam("nodesize",lower=10,upper=50)
+  # ) # select parameters to tune
+  # 
+  # forest.contrl = makeTuneControlRandom(maxit = 50)
+  # forest.resDesc=makeResampleDesc("CV", iters = 10)
+  # 
+  # forest.tunedparams = tuneParams(learner=f1.lrn.forest,task=f1.task,
+  #                            resampling=forest.resDesc,
+  #                            measures = list(rmse),
+  #                            par.set = forest.paramset,
+  #                            control = forest.contrl)
+  # 
+  # f1.lrn.forest=setHyperPars(f1.lrn.forest,
+  #                            par.vals=forest.tunedparams$x)
   
   
   f1.lrn.best = f1.lrn.forest # placeholder
@@ -104,10 +108,12 @@ while(call_counter <= max_calls - new_observations_per_call & round<5) {
   # -------------------------------------------------------- .
   # Benchmark current model
   bench.pred = predict(f1.mdl.best, newdata = benchmark %>% select(x,y,f1))
-  performance(pred = bench.pred, measures = rmse)
+  
   benchresults = c(benchresults,performance(pred = bench.pred, measures = rmse))
   benchmark[paste("resp",round,sep="")]=bench.pred$data$response
   benchmark[paste("rse",round,sep="")]=(bench.pred$data %>% transmute(rse=sqrt((truth-response)**2)))$rse
+  
+  print(paste("Current benchmark rmse value is",performance(pred = bench.pred, measures = rmse)))
   
   bench.pred = predict(f1.mdl.best, newdata = f1.samples %>% select(x,y,f1))
   performance(pred = bench.pred, measures = rmse)
@@ -127,42 +133,36 @@ while(call_counter <= max_calls - new_observations_per_call & round<5) {
   # Resample best learner
   f1.perf.best = resample(f1.lrn.best, f1.task, loo, measures = rmse, models=T)
   
-  View(
+  point_eval = 
     f1.perf.best$pred$data %>% filter(set=="test") %>%
-    select(id,iter) %>% inner_join(f1.perf.best$measures.test,by="iter")
-  )
+    select(id,iter) %>% inner_join(f1.perf.best$measures.test,by="iter") %>%
+      inner_join(f1.perf.best$measures.train,by="iter",suffix = c(".test",".train")) %>%
+      mutate(rmse.all = sqrt((rmse.test**2 + (rmse.train**2)*(max(f1.perf.best$pred$data$id)-1))/max(f1.perf.best$pred$data$id)))
+  point_eval = point_eval %>% arrange(id)
+  point_eval = cbind(f1.samples %>% select(x,y),point_eval)
   
-  (f1.perf.best$measures.test$rmse[2]**2+
-      316*(f1.perf.best$measures.train$rmse[2]**2))/317
-  
-  f1.perf.best$pred$data %>% group_by(iter) %>%
-    summarize(rmse=sqrt(mean((truth-response)**2)))
-  
-  f1.predstat = cbind(f1.samples,f1.predstat)
-  f1.predstat = f1.predstat %>% mutate(rmse=sqrt((f1-meanpred)**2))
-  
-  D = f1.predstat %>% select(x,y,rmse)
-  D.task = makeRegrTask(data=D,target="rmse")
+  D = point_eval %>% select(x,y,rmse.all)
+  D.task = makeRegrTask(data=D,target="rmse.all")
   
   #fplot(f1.predstat,f="rmse")
   
   # Make learner and tune hyperparameters
   D.lrn = makeLearner("regr.kknn",id="rmse_learner")
-  D.paramset = makeParamSet(
-    makeIntegerParam("k", lower = 2, upper = 20)
-  ) # select parameters to tune
+  #D.paramset = makeParamSet(
+    #makeIntegerParam("k", lower = 2, upper = 20)
+  #) # select parameters to tune
   
-  D.contrl = makeTuneControlGrid()
-  D.resDesc=makeResampleDesc("CV", iters = 10)
+  #D.contrl = makeTuneControlGrid()
+  #D.resDesc=makeResampleDesc("CV", iters = 10)
   
   #parallelMap::parallelStartSocket(4)
-  D.tunedparams = tuneParams(learner=D.lrn,task=D.task,
-                             resampling=D.resDesc,
-                             measures = list(rmse),
-                             par.set = D.paramset,control = D.contrl)
+  #D.tunedparams = tuneParams(learner=D.lrn,task=D.task,
+  #                           resampling=D.resDesc,
+   #                          measures = list(rmse),
+    #                         par.set = D.paramset,control = D.contrl)
   #parallelMap::parallelStop()
   
-  D.lrn=setHyperPars(D.lrn,par.vals=D.tunedparams$x)
+  D.lrn=setHyperPars(D.lrn,par.vals=list(k=6))
   
   # Train learner
   D.mdl = train(task=D.task,learner=D.lrn)
@@ -171,13 +171,11 @@ while(call_counter <= max_calls - new_observations_per_call & round<5) {
   # Evaluate predictions (mean squared error)
   D.pred = predict(D.mdl, newdata = D)
   performance(pred = D.pred, measures = rmse)
-  f1.predstat$estim = D.pred$data$response
+  point_eval$estim = D.pred$data$response
   
-  #f1f2plot(f1.predstat,f_1 = "rmse",f_2 = "estim", scaleit=F)
+  #f1f2plot(point_eval,f_1 = "rmse.all",f_2 = "estim", scaleit=F)
   
   error_bench = benchmark
-  error_bench$pred = predict(f1.mdl.best,newdata = error_bench %>% select(x,y))$data$response
-  error_bench$realrse =  sqrt((error_bench$pred - error_bench$f1)**2)
   error_bench$estimrse = predict(D.mdl, newdata = error_bench %>% select(x,y))$data$response
   #f1f2plot(error_bench,f_1 = "realrse",f_2 = "estimrse", scaleit=F)
   
@@ -186,13 +184,17 @@ while(call_counter <= max_calls - new_observations_per_call & round<5) {
   # Select observation(s) with highest total variance to be fetched from API
   error_bench = error_bench %>% arrange(desc(estimrse))
   # Leave out observations which have been fetched already
-  f1.fetch = (error_bench %>% select(x,y,estimrse))
+  f1.fetch = error_bench %>% select(x,y) %>%
+    setdiff(f1.samples %>% select(x,y)) %>% inner_join(error_bench,by=c("x","y"))
   
-  f1.fetch_n = sample_n(f1.fetch,size=new_observations_per_call,
-                        weight=(f1.fetch$estimrse**20)) %>%
-    select(x,y)
-  plot(f1.fetch_n$x,f1.fetch_n$y,xlim=c(-5,5),ylim=c(-5,5))
+  f1.fetch_n = sample_n(f1.fetch,
+                        size=new_observations_per_call,
+                        weight=((f1.fetch$estimrse-min(f1.fetch$estimrse))**10)) %>% select(x,y)
   
+  plot(error_bench$x,error_bench$y,xlim=c(-5,5),ylim=c(-5,5),pch=19,col=toCol(error_bench$estimrse),xlab="x",ylab="y",main="Information value landscape and selected points")
+  points(f1.samples$x,f1.samples$y,col="black",pch=3)
+  points(f1.fetch_n$x,f1.fetch_n$y,col="red",pch=3)
+
   
   # Call API and add new observations to sampleset
   res = batch_apirequest(f1.fetch_n %>% select(x,y), 1, "api-test2D",call_counter)
@@ -203,6 +205,20 @@ while(call_counter <= max_calls - new_observations_per_call & round<5) {
   }
 }
 # LOOP
+
+# Evaluation of Performance
+plot(benchresults,xlab="Round",ylab="Rmse",main="Performance over rounds")
+
+# Show where samples have been fetched from
+plot(f1.samples$x,f1.samples$y,xlim=c(-5,5),ylim=c(-5,5),xlab="x",ylab="y",col="red",main="Selected points")
+
+# Comparing the benchmark results
+f1f2plot(benchmark,f_1="rse1",f_2="rse5",scaleit=F)
+f1f2plot(benchmark,f_1="f1",f_2="resp5",scaleit=F)
+
+
+#Other
+
 
 bench.pred = predict(f1.mdl.best, newdata = benchmark)
 viz_benchmark = cbind(benchmark,bench.pred$data) %>% mutate(err=response-truth)
@@ -219,28 +235,32 @@ plot(f1.grid$x,f1.grid$y,col=toCol(f1.grid$varnoise))
 plot(f1.predstat$x,f1.predstat$y,col=toCol(f1.predstat$rmse))
 fplot(f1.predstat,f = "rmse")
 
-toCol = function(x,resolution=50){
-  color=resolution*(x-min(x))/(max(x)-min(x))
-  viridisLite::viridis(resolution)[floor(color)]
-}
 
-# Comparing the benchmark results
-plot(f1.fetch_n$x,f1.fetch_n$y,xlim=c(-5,5),ylim=c(-5,5))
-f1f2plot(benchmark,f_1="rse1",f_2="rse5",scaleit=F)
-f1f2plot(benchmark,f_1="f1",f_2="resp1",scaleit=F)
 
-fplot(benchmark,f="f1")
 
-plot_ly(benchmark %>% mutate(err=rse2-rse1),
-  type = 'scatter',
-  mode='markers',
-  x=~x,
-  y=~y,
-  marker=list(
-    color=~err,
-    colorbar=list(
-      title='Colorbar'),
-    colorscale='Viridis'))
+
+fplot(point_eval,f="rmse.all")
+
+plot_ly(error_bench) %>%
+  add_trace(type = 'scatter',
+        mode='markers',
+        x=~x,
+        y=~y,
+        marker=list(
+          color=~estimrse,
+          colorbar=list(
+            title='Colorbar'),
+          colorscale='Viridis'))
+
+%>%
+  add_trace(f1.fetch_n,
+            type = 'scatter',
+            mode='markers',
+            x=~x,
+            y=~y,
+            marker=list(
+              color="black",
+              visible=F))
 
 plot_ly(f1.fetch_n) %>%
   add_trace(x=~x,y=~y,type = 'scatter',
@@ -249,3 +269,10 @@ plot_ly(f1.fetch_n) %>%
 
 plot(benchmark$x,benchmark$y,col=toCol(benchresults.map[[1]]$rse-benchresults.map[[2]]$rse))
 
+plot(point_eval$x,point_eval$y,col=toCol(point_eval$rmse.all))
+
+
+plot(error_bench$x,error_bench$y,col=toCol(error_bench$estimrse))
+points(f1.fetch_n$x,f1.fetch_n$y,xlim=c(-5,5),ylim=c(-5,5))
+
+points(f1.samples$x,f1.samples$y)
