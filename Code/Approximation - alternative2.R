@@ -204,10 +204,13 @@ while(call_counter <= max_calls - new_observations_per_call & round<10) {
   f1.samples = f1.samples %>% union(f1.fetch_n)
   }
 }
+parallelMap::parallelStop()
 # LOOP
 
 # Evaluation of Performance
 plot(benchresults,xlab="Round",ylab="Rmse",main="Performance over rounds")
+
+plot(benchbelieve,xlab="Round",ylab="Rmse",main="Believed performance over rounds")
 
 # Show where samples have been fetched from
 plot(f1.samples$x,f1.samples$y,xlim=c(-5,5),ylim=c(-5,5),xlab="x",ylab="y",col="red",main="Selected points")
