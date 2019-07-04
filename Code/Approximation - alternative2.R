@@ -61,9 +61,11 @@ round=0
 #Preparation of learners and hyperparameters
 
 inner = makeResampleDesc("Subsample", iters = 4)
-ctrl = makeTuneControlRandom(maxit = 50)
+outer = makeResampleDesc("CV", iters = 5)
+ctrl = makeTuneControlRandom(maxit = 30)
 
 learners = list(
+"regr.ksvm.tuned" = 
   makeTuneWrapper("regr.ksvm",
                   resampling = inner,
                   measures=rmse,
@@ -74,12 +76,12 @@ learners = list(
                   ),
                   control = ctrl,
                   show.info = FALSE),
-  
+"regr.xgboost.tuned"=  
   makeTuneWrapper("regr.xgboost",
                   resampling = inner,
                   measures=rmse,
                   par.set = makeParamSet(
-                    makeNumericParam(id = "nrounds", lower = log2(10/10), upper = log2(500/10), trafo = function(x) round(2^x * 10)),
+                    makeNumericParam(id = "nrounds", lower = log2(10/10), upper = log2(200/10), trafo = function(x) round(2^x * 10)),
                     makeIntegerParam(id = "max_depth", lower = 3L, upper = 10L),
                     makeNumericParam(id = "eta", lower = 0.001, upper = 0.3),
                     makeNumericParam(id = "gamma", lower = 0, upper = 10),
@@ -89,7 +91,7 @@ learners = list(
                   ),
                   control = ctrl,
                   show.info = FALSE),
-  
+"regr.randomForest.tuned"=  
   makeTuneWrapper("regr.randomForest",
                   resampling = inner,
                   measures=rmse,
@@ -99,7 +101,7 @@ learners = list(
                   ),
                   control = ctrl,
                   show.info = FALSE),
-  
+"regr.kknn.tuned"=  
   makeTuneWrapper("regr.kknn",
                   resampling = inner,
                   measures=rmse,
@@ -109,7 +111,7 @@ learners = list(
                   ),
                   control = ctrl,
                   show.info = FALSE),
-  
+"regr.nnet.tuned"=
   makeTuneWrapper("regr.nnet",
                   resampling = inner,
                   measures=rmse,
@@ -122,81 +124,47 @@ learners = list(
 )
 
 
-parallelMap::parallelStartSocket(6)
+parallelMap::parallelStartSocket(10)
 }
-while(call_counter <= max_calls - new_observations_per_call & round<80) {
+while(call_counter <= max_calls - new_observations_per_call & round<51) {
   {
     {
   round = round +1
   print(paste("Round",round))
   
-  # Define tasks and learners
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  # Find and train best learner
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  
+  # Define tasks
   f1.task = makeRegrTask(data = f1.samples, target = "f1")
-  f1.lrn.svm = makeLearner(cl = "regr.ksvm",id="svm")
-  f1.lrn.xgb = makeLearner(cl = "regr.xgboost",id="xgboost")
-  f1.lrn.forest = makeLearner(cl = "regr.randomForest",id="randomForest")
-  
   f2.task = makeRegrTask(data = f2.samples, target = "f2")
-  f2.lrn.svm = makeLearner(cl = "regr.ksvm",id="svm")
   
+  # Evaluate all learners with nested resampling
+  nestedResamplingResults = as.data.frame(benchmark(learners,f1.task,outer,measures=rmse,show.info=FALSE,keep.pred=F,models=F)) %>%
+    group_by(learner.id) %>% summarize(rmse = mean(rmse)) %>% arrange(rmse)
   
+  # Choose best learner
+  f1.lrn.best = learners[[nestedResamplingResults$learner.id[1]]]
+  print(paste("Best learner for this round is",f1.lrn.best$id))
   
-  
-
-  
-  # Outer resampling loop
-  outer = makeResampleDesc("CV", iters = 5)
-  nestedResamplingResults = benchmark(learners,f1.task,outer,measures=rmse,show.info=FALSE)
-  
-  
-  nestedResamplingResults = sapply(learners,
-    function(learner){
-    r = resample(learner, f1.task, resampling = outer, extract = getTuneResult, show.info = FALSE)
-    return(rbind(r$learner.id,r$aggr))})
-  
-  
-  
-  #### Perform all resampling and model selection here
-  # TODO
-  # make nested resampling (with hyperparameter tuning) to find best learner class
-  # choose best learner, tune hyperparameters on all observations
-  # Output: One learner class with trained hyperparameters (we call it "best learner")
-  
-  # Make learner and tune hyperparameters
-  # forest.paramset = makeParamSet(
-  #   makeIntegerParam("mtry",lower=2,upper=10),
-  #   makeIntegerParam("nodesize",lower=10,upper=50)
-  # ) # select parameters to tune
-  # 
-  # forest.contrl = makeTuneControlRandom(maxit = 50)
-  # forest.resDesc=makeResampleDesc("CV", iters = 10)
-  # 
-  # forest.tunedparams = tuneParams(learner=f1.lrn.forest,task=f1.task,
-  #                            resampling=forest.resDesc,
-  #                            measures = list(rmse),
-  #                            par.set = forest.paramset,
-  #                            control = forest.contrl)
-  # 
-  # f1.lrn.forest=setHyperPars(f1.lrn.forest,
-  #                            par.vals=forest.tunedparams$x)
-  
-  
-  f1.lrn.best = f1.lrn.forest # placeholder
   f2.lrn.best = f2.lrn.svm # placeholder
   
-  #### Run Hyperparameter Tuning on whole dataset
-  # TODO
+  # Adjust control strategy to have more iterations
+  f1.lrn.best$control = makeTuneControlRandom(maxit=100)
+  
+  # Train the model (automatically run hyperparameter tuning for best learner on whole dataset)
   if(exists("f1.mdl.best")) f1.mdl.old = f1.mdl.best
   f1.mdl.best = train(learner = f1.lrn.best, task = f1.task)
   
-  
-  # -------------------------------------------------------- .
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
   # Benchmark current model
-  bench.pred = predict(f1.mdl.best, newdata = benchmark %>% select(x,y,f1))
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
   
+  bench.pred = predict(f1.mdl.best, newdata = benchmark %>% select(x,y,f1))
   benchresults = c(benchresults,performance(pred = bench.pred, measures = rmse))
-  benchmark[paste("resp",round,sep="")]=bench.pred$data$response
-  benchmark[paste("rse",round,sep="")]=(bench.pred$data %>% transmute(rse=sqrt((truth-response)**2)))$rse
+  #benchmark[paste("resp",round,sep="")]=bench.pred$data$response
+  #benchmark[paste("rse",round,sep="")]=(bench.pred$data %>% transmute(rse=sqrt((truth-response)**2)))$rse
   
   print(paste("Current benchmark rmse value is",performance(pred = bench.pred, measures = rmse)))
   
@@ -206,10 +174,13 @@ while(call_counter <= max_calls - new_observations_per_call & round<80) {
   bench.pred = predict(f1.mdl.old, newdata = f1.samples %>% select(x,y,f1))
   benchbelieve_old = c(benchbelieve_old,performance(pred = bench.pred, measures = rmse))
   
-  # -------------------------------------------------------- .
+  plot(benchresults,xlab="Round",ylab="Rmse",main="Performance over rounds")
   }
   
-  #### Analyse noise and model variance
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  # Analyse informative value of each point
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+    
   # Define resampling strategy
   loo = makeResampleDesc(method = "LOO", predict="both")
   
@@ -229,31 +200,20 @@ while(call_counter <= max_calls - new_observations_per_call & round<80) {
   
   #fplot(f1.predstat,f="rmse")
   
-  # Make learner and tune hyperparameters
-  D.lrn = makeLearner("regr.kknn",id="rmse_learner")
-  #D.paramset = makeParamSet(
-    #makeIntegerParam("k", lower = 2, upper = 20)
-  #) # select parameters to tune
-  
-  #D.contrl = makeTuneControlGrid()
-  #D.resDesc=makeResampleDesc("CV", iters = 10)
-  
-  #parallelMap::parallelStartSocket(4)
-  #D.tunedparams = tuneParams(learner=D.lrn,task=D.task,
-  #                           resampling=D.resDesc,
-   #                          measures = list(rmse),
-    #                         par.set = D.paramset,control = D.contrl)
-  #parallelMap::parallelStop()
-  
-  D.lrn=setHyperPars(D.lrn,par.vals=list(k=6))
-  
+  # Make learner with hyperparameters to be tuned
+  D.lrn = makeTuneWrapper("regr.kknn",
+                          resampling = makeResampleDesc("CV", iters = 5),
+                          measures=rmse,
+                          par.set = makeParamSet(
+                            makeIntegerParam("k", lower = 2, upper = 20),
+                            makeDiscreteParam("kernel", values = c("rectangular","triangular", "epanechnikov","biweight","tri-weight","cos", "inv", "gaussian", "rank","optimal"))
+                          ),
+                          control = makeTuneControlGrid())
   # Train learner
   D.mdl = train(task=D.task,learner=D.lrn)
   
-  
   # Evaluate predictions (mean squared error)
   D.pred = predict(D.mdl, newdata = D)
-  performance(pred = D.pred, measures = rmse)
   point_eval$estim = D.pred$data$response
   
   #f1f2plot(point_eval,f_1 = "rmse.all",f_2 = "estim", scaleit=F)
@@ -262,7 +222,9 @@ while(call_counter <= max_calls - new_observations_per_call & round<80) {
   error_bench$estimrse = predict(D.mdl, newdata = error_bench %>% select(x,y))$data$response
   #f1f2plot(error_bench,f_1 = "realrse",f_2 = "estimrse", scaleit=F)
   
-  #### Select new observations to fetch from API, based on error estimates
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  # Fetch new observations from API, based on error estimates
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
   
   # Select observation(s) with highest total variance to be fetched from API
   error_bench = error_bench %>% arrange(desc(estimrse))
@@ -274,10 +236,10 @@ while(call_counter <= max_calls - new_observations_per_call & round<80) {
                         size=new_observations_per_call,
                         weight=((f1.fetch$estimrse-min(f1.fetch$estimrse))**10)) %>% select(x,y)
   
+  # Plot map
   plot(error_bench$x,error_bench$y,xlim=c(-5,5),ylim=c(-5,5),pch=19,col=toCol(error_bench$estimrse),xlab="x",ylab="y",main="Information value landscape and selected points")
   points(f1.samples$x,f1.samples$y,col="black",pch=3)
   points(f1.fetch_n$x,f1.fetch_n$y,col="red",pch=3)
-
   
   # Call API and add new observations to sampleset
   res = batch_apirequest(f1.fetch_n %>% select(x,y), 1, "api-test2D",call_counter)
@@ -287,10 +249,13 @@ while(call_counter <= max_calls - new_observations_per_call & round<80) {
   f1.samples = f1.samples %>% union(f1.fetch_n)
   }
 }
-parallelMap::parallelStop()
-# LOOP
 
+parallelMap::parallelStop()
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
 # Evaluation of Performance
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+
 plot(benchresults,xlab="Round",ylab="Rmse",main="Performance over rounds")
 
 plot(benchbelieve,xlab="Round",ylab="Rmse",main="Believed performance over rounds")
@@ -305,10 +270,9 @@ plot(f1.samples$x,f1.samples$y,xlim=c(-5,5),ylim=c(-5,5),xlab="x",ylab="y",col="
 f1f2plot(benchmark,f_1="rse1",f_2="rse5",scaleit=F)
 f1f2plot(benchmark,f_1="f1",f_2="resp5",scaleit=F)
 
-
-
-##############################################.
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
 # Comparison with grid approach
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
 
 plot(benchresults,xlab="Round",ylab="Rmse",main="Performance over rounds")
 for(i in seq(1,51,by=1)){
