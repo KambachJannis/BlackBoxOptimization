@@ -94,28 +94,50 @@ opti_3D_functions_moead <- function(X, ...){
 
 ### NSGA-II
 results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
-                               mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.5, lower = rep(-5,3), upper = rep(5,3)),
-                               recombinator = setup(recSBX, eta = 15, p = 0.6, lower = rep(-5,3), upper = rep(5,3)),
-                               terminators = list(stopOnIters(500L)))
+                               mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                               recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                               terminators = list(stopOnIters(10L)))
 plot(results_3D.nsga2$pareto.front, xlim = c(-150,400), ylim = c(45,70))
 
-points(results_3D.nsga2_02_07_standard$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "red")
+plot(results_3D.nsga2_02_07_standard$pareto.front, xlim = c(-150,400), ylim = c(45,70))
 points(results_3D.nsga2_01_09$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "gold")
 points(results_3D.nsga2_05_09$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "green")
 points(results_3D.nsga2_05_06$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "red")
 points(results_3D.nsga2_07_06$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "blue")
 
+computeHV(rbind(results_3D.nsga2_02_07_standard$pareto.front$y1,results_3D.nsga2_02_07_standard$pareto.front$y2), c(400,70))
+computeHV(rbind(results_3D.nsga2_01_09$pareto.front$y1,results_3D.nsga2_01_09$pareto.front$y2), c(400,70))
+computeHV(rbind(results_3D.nsga2_05_09$pareto.front$y1,results_3D.nsga2_05_09$pareto.front$y2), c(400,70))
+computeHV(rbind(results_3D.nsga2_05_06$pareto.front$y1,results_3D.nsga2_05_06$pareto.front$y2), c(400,70))
+computeHV(rbind(results_3D.nsga2_07_06$pareto.front$y1,results_3D.nsga2_07_06$pareto.front$y2), c(400,70))
+
+iterations <- seq(10,100,by=10)
+hypervolumes <- c()
+while(length(iterations)>0){
+  results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                 mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                 recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                 terminators = list(stopOnIters(iterations[1])))
+  hypervolumes <- c(hypervolumes,computeHV(rbind(results_3D.nsga2$pareto.front$y1,results_3D.nsga2$pareto.front$y2), c(400,70)))
+  iterations <- iterations[-1]
+}
+
+iterations <- seq(10,100,by=10)
+plot(iterations,hypervolumes)
+
 ### SMS-EMOA
-results_3D.smsemoa <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(0,3), upper = rep(20,3),
+results_3D.smsemoa <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
                                    mu = 100L, lambda = mu, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
-                                   recombinator = setup(recSBX, eta = 15, p = 0.7, lower = lower, upper = upper),
-                                   terminators = list(stopOnIters(30000L)))
-plot(results_3D.smsemoa$pareto.front)
+                                   recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                   terminators = list(stopOnIters(50000L)))
+points(results_3D.smsemoa$pareto.front, col = "red")
+
+computeHV(rbind(results_3D.smsemoa$pareto.front$y1,results_3D.smsemoa$pareto.front$y2), c(400,70))
 
 ### MOEA/D
 problem   <- list(name       = "opti_3D_functions_moead",
-                  xmin       = rep(0, 3),
-                  xmax       = rep(20, 3),
+                  xmin       = rep(-5, 3),
+                  xmax       = rep(5, 3),
                   m          = 2)
 decomp    <- list(name       = "sld", H = 99)
 neighbors <- list(name       = "lambda",
@@ -132,7 +154,7 @@ update    <- list(name       = "standard",
 scaling   <- list(name       = "none")
 constraint<- list(name       = "none")
 stopcrit  <- list(list(name  = "maxiter",
-                       maxiter  = 10000))
+                       maxiter  = 1000))
 showpars  <- list(show.iters = "dots",
                   showevery  = 10)
 seed      <- NULL
@@ -141,7 +163,9 @@ results_3D.moead <- moead(problem = problem,
               decomp = decomp, aggfun = aggfun, neighbors = neighbors, variation = variation, 
               update = update, constraint = constraint, scaling = scaling, stopcrit = stopcrit,
               showpars = showpars, seed = seed)
-plot(results_3D.moead$Y[,1], results_3D.moead$Y[,2])
+points(results_3D.moead$Y[,1], results_3D.moead$Y[,2], col = "green")
+
+computeHV(rbind(results_3D.moead$Y[,1],results_3D.moead$Y[,2]), c(400,70))
 
 #### Test calls ####
 ### 2D functions
