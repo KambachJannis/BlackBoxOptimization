@@ -42,13 +42,13 @@ benchbelieve_old = c()
 
 
 # Get first observations
-f1.samples = as.data.frame(expand.grid(seq(-5,5,length.out=floor(sqrt(number_of_first_observations))),seq(-5,5,length.out=floor(sqrt(number_of_first_observations)))))
+f1.samples = as.data.frame(lhs::maximinLHS(n = number_of_first_observations,k=2)) %>% rename(x=V1,y=V2) %>% mutate(x=x*10-5,y=y*10-5)
 colnames(f1.samples)=c("x","y")
 res = batch_apirequest(f1.samples %>% select(x,y), 1, "api-test2D",call_counter)
 f1.samples$f1 = res[[1]]
 call_counter= res[[2]]
 
-f2.samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
+f2.samples = as.data.frame(lhs::maximinLHS(n = number_of_first_observations,k=2)) %>% rename(x=V1,y=V2) %>% mutate(x=x*10-5,y=y*10-5)
 colnames(f2.samples)=c("x","y")
 res = batch_apirequest(f2.samples %>% select(x,y), 2, "api-test2D",call_counter)
 f2.samples$f2 = res[[1]]
@@ -81,7 +81,7 @@ learners = list(
                   resampling = inner,
                   measures=rmse,
                   par.set = makeParamSet(
-                    makeNumericParam(id = "nrounds", lower = log2(10/10), upper = log2(200/10), trafo = function(x) round(2^x * 10)),
+                    makeNumericParam(id = "nrounds", lower = log2(10/10), upper = log2(100/10), trafo = function(x) round(2^x * 10)),
                     makeIntegerParam(id = "max_depth", lower = 3L, upper = 10L),
                     makeNumericParam(id = "eta", lower = 0.001, upper = 0.3),
                     makeNumericParam(id = "gamma", lower = 0, upper = 10),
