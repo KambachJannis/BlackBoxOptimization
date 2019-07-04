@@ -123,6 +123,8 @@ learners = list(
                   show.info = FALSE)
 )
 
+losertable = data.frame(learner.id=c("regr.ksvm.tuned","regr.xgboost.tuned","regr.randomForest.tuned","regr.kknn.tuned","regr.nnet.tuned"),lifepoints=rep(5,5),stringsAsFactors = F)
+
 
 parallelMap::parallelStartSocket(10)
 }
@@ -141,8 +143,18 @@ while(call_counter <= max_calls - new_observations_per_call & round<51) {
   f2.task = makeRegrTask(data = f2.samples, target = "f2")
   
   # Evaluate all learners with nested resampling
-  nestedResamplingResults = as.data.frame(benchmark(learners,f1.task,outer,measures=rmse,show.info=FALSE,keep.pred=F,models=F)) %>%
+  nestedResamplingResults = as.data.frame(benchmark(learners,f1.task,outer,measures=rmse,show.info=FALSE,keep.pred=F,models=F),stringsAsFactors = F) %>%
     group_by(learner.id) %>% summarize(rmse = mean(rmse)) %>% arrange(rmse)
+  
+  # Calculate lifepoints for learners
+  losertable = losertable %>% inner_join(nestedResamplingResults %>% select(learner.id,rmse),by="learner.id") %>% arrange(rmse) %>%
+    mutate(lifepoints = pmin(5,lifepoints + c(10,rep(-1,length(learners)-1)))) %>% select(learner.id,lifepoints)
+  # Kick out unsuccessful learners
+  if(nrow(losertable %>% filter(lifepoints<1))>0){
+  print("Kicking the following learners:")
+  print(paste((losertable %>% filter(lifepoints<1))$learner.id))
+  learners = learners[-(which(names(learners) %in% (losertable %>% filter(lifepoints<1))$learner.id))]
+  }
   
   # Choose best learner
   f1.lrn.best = learners[[nestedResamplingResults$learner.id[1]]]
@@ -206,7 +218,7 @@ while(call_counter <= max_calls - new_observations_per_call & round<51) {
                           measures=rmse,
                           par.set = makeParamSet(
                             makeIntegerParam("k", lower = 2, upper = 20),
-                            makeDiscreteParam("kernel", values = c("rectangular","triangular", "epanechnikov","biweight","tri-weight","cos", "inv", "gaussian", "rank","optimal"))
+                            makeDiscreteParam("kernel", values = c("rectangular","triangular","optimal"))
                           ),
                           control = makeTuneControlGrid())
   # Train learner
