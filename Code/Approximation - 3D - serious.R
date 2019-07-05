@@ -28,7 +28,7 @@ new_observations_per_call=10
 benchbelieve = data.frame(Round=c(0),Learner=c("none"),Believed_Perf=c(0))
 
 # Function
-func_i = 1
+func_i = 2
 func = paste("f",func_i,sep="")
 
 api="api"
