@@ -333,6 +333,21 @@ comp.perf = performance(pred = comp.bench.pred, measures = rmse)
 points(i,comp.perf,col="red",pch=7)
 }
 
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Train final model
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+
+#Keep in mind to reset learner list
+parallelMap::parallelStartSocket(6)
+nestedResamplingResults = as.data.frame(benchmark(learners,f.task,outer,measures=rmse,show.info=FALSE,keep.pred=F,models=F),stringsAsFactors = F) %>%
+  group_by(learner.id) %>% summarize(rmse = mean(rmse)) %>% arrange(rmse) %>% mutate_if(is.factor, as.character)
+parallelMap::parallelStop()
+
+f.lrn.best = learners[[as.character(nestedResamplingResults$learner.id[1])]]
+f.lrn.best$control = makeTuneControlRandom(maxit=500)
+
+mdl.final = quiet(train(learner = f.lrn.best, task = f.task))
+
 
 #Other
 
