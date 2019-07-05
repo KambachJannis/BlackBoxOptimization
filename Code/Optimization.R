@@ -4,9 +4,8 @@ source("Base.R")
 ###########################################################
 ##### Optimization #####
 library(ecr)
-library(nsga2R)
-library(MOEADr)
 library(mlr)
+library(MOEADr)
 library(e1071)
 library(plotly)
 
@@ -94,9 +93,9 @@ opti_3D_functions_moead <- function(X, ...){
 
 ### NSGA-II
 results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
-                               mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                               mu = 40L, lambda = 40L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
                                recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
-                               terminators = list(stopOnIters(10L)))
+                               terminators = list(stopOnIters(100L)))
 plot(results_3D.nsga2$pareto.front, xlim = c(-150,400), ylim = c(45,70))
 
 plot(results_3D.nsga2_02_07_standard$pareto.front, xlim = c(-150,400), ylim = c(45,70))
@@ -111,19 +110,51 @@ computeHV(rbind(results_3D.nsga2_05_09$pareto.front$y1,results_3D.nsga2_05_09$pa
 computeHV(rbind(results_3D.nsga2_05_06$pareto.front$y1,results_3D.nsga2_05_06$pareto.front$y2), c(400,70))
 computeHV(rbind(results_3D.nsga2_07_06$pareto.front$y1,results_3D.nsga2_07_06$pareto.front$y2), c(400,70))
 
+## Vary iterations size and plot hypervolume
 iterations <- seq(10,100,by=10)
-hypervolumes <- c()
+hypervolumes_iterations_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(hypervolumes_iterations_overview) <- c("10 iterations","20","30","40","50","60","70","80","90","100")
+i <- 1
 while(length(iterations)>0){
-  results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
-                                 mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
-                                 recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
-                                 terminators = list(stopOnIters(iterations[1])))
-  hypervolumes <- c(hypervolumes,computeHV(rbind(results_3D.nsga2$pareto.front$y1,results_3D.nsga2$pareto.front$y2), c(400,70)))
+  hypervolumes <- c()
+  for(j in 1:10){
+    results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                   mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                   recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                   terminators = list(stopOnIters(iterations[1])))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(results_3D.nsga2$pareto.front$y1,results_3D.nsga2$pareto.front$y2), c(400,70)))
+  }
+  hypervolumes_iterations_overview[,i] <- hypervolumes
+  
   iterations <- iterations[-1]
+  i <- i+1
 }
+iterations_plot <- c(rep(10,10),rep(20,10),rep(30,10),rep(40,10),rep(50,10),rep(60,10),rep(70,10),rep(80,10),rep(90,10),rep(100,10))
+hypervolumes_iterations_plot <- c(hypervolumes_iterations_overview[,1],hypervolumes_iterations_overview[,2],hypervolumes_iterations_overview[,3],hypervolumes_iterations_overview[,4],hypervolumes_iterations_overview[,5],hypervolumes_iterations_overview[,6],hypervolumes_iterations_overview[,7],hypervolumes_iterations_overview[,8],hypervolumes_iterations_overview[,9],hypervolumes_iterations_overview[,10])
+plot(iterations_plot,hypervolumes_iterations_plot)
 
-iterations <- seq(10,100,by=10)
-plot(iterations,hypervolumes)
+## Vary population size and plot hypervolume
+population <- seq(20,200,by=20)
+hypervolumes_population_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(hypervolumes_population_overview) <- c("20 population","40","60","80","100","120","140","160","180","200")
+i <- 1
+while(length(population)>0){
+  hypervolumes <- c()
+  for(j in 1:10){
+    results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                   mu = population[1], lambda = population[1], mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                   recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                   terminators = list(stopOnIters(50L)))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(results_3D.nsga2$pareto.front$y1,results_3D.nsga2$pareto.front$y2), c(400,70)))
+  }
+  hypervolumes_population_overview[,i] <- hypervolumes
+  
+  population <- population[-1]
+  i <- i+1
+}
+population_plot <- c(rep(20,10),rep(40,10),rep(60,10),rep(80,10),rep(100,10),rep(120,10),rep(140,10),rep(160,10),rep(180,10),rep(200,10))
+hypervolumes_population_plot <- c(hypervolumes_population_overview[,1],hypervolumes_population_overview[,2],hypervolumes_population_overview[,3],hypervolumes_population_overview[,4],hypervolumes_population_overview[,5],hypervolumes_population_overview[,6],hypervolumes_population_overview[,7],hypervolumes_population_overview[,8],hypervolumes_population_overview[,9],hypervolumes_population_overview[,10])
+plot(population_plot,hypervolumes_population_plot)
 
 ### SMS-EMOA
 results_3D.smsemoa <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
