@@ -91,90 +91,222 @@ opti_3D_functions_moead <- function(X, ...){
   t(apply(X, MARGIN = 1, FUN = opti_3D_functions))
 }
 
-### NSGA-II
-results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
-                               mu = 40L, lambda = 40L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+### NSGA-II ####
+nsga2.results <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                               mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
                                recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
                                terminators = list(stopOnIters(100L)))
-plot(results_3D.nsga2$pareto.front, xlim = c(-150,400), ylim = c(45,70))
+plot(nsga2.results$pareto.front, xlim = c(-150,350), ylim = c(45,70))
 
-plot(results_3D.nsga2_02_07_standard$pareto.front, xlim = c(-150,400), ylim = c(45,70))
-points(results_3D.nsga2_01_09$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "gold")
-points(results_3D.nsga2_05_09$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "green")
-points(results_3D.nsga2_05_06$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "red")
-points(results_3D.nsga2_07_06$pareto.front, xlim = c(-150,400), ylim = c(45,70), col = "blue")
-
-computeHV(rbind(results_3D.nsga2_02_07_standard$pareto.front$y1,results_3D.nsga2_02_07_standard$pareto.front$y2), c(400,70))
-computeHV(rbind(results_3D.nsga2_01_09$pareto.front$y1,results_3D.nsga2_01_09$pareto.front$y2), c(400,70))
-computeHV(rbind(results_3D.nsga2_05_09$pareto.front$y1,results_3D.nsga2_05_09$pareto.front$y2), c(400,70))
-computeHV(rbind(results_3D.nsga2_05_06$pareto.front$y1,results_3D.nsga2_05_06$pareto.front$y2), c(400,70))
-computeHV(rbind(results_3D.nsga2_07_06$pareto.front$y1,results_3D.nsga2_07_06$pareto.front$y2), c(400,70))
+plot(nsga2.results_02_07_standard$pareto.front, xlim = c(-150,350), ylim = c(45,70))
+points(nsga2.results_01_09$pareto.front, xlim = c(-150,350), ylim = c(45,70), col = "gold")
+points(nsga2.results_05_09$pareto.front, xlim = c(-150,350), ylim = c(45,70), col = "green")
+points(nsga2.results_05_06$pareto.front, xlim = c(-150,350), ylim = c(45,70), col = "red")
+points(nsga2.results_07_06$pareto.front, xlim = c(-150,350), ylim = c(45,70), col = "blue")
 
 ## Vary iterations size and plot hypervolume
 iterations <- seq(10,100,by=10)
-hypervolumes_iterations_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
-colnames(hypervolumes_iterations_overview) <- c("10 iterations","20","30","40","50","60","70","80","90","100")
+nsga2.hypervolumes_iterations_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(nsga2.hypervolumes_iterations_overview) <- c("10 iterations","20","30","40","50","60","70","80","90","100")
 i <- 1
 while(length(iterations)>0){
   hypervolumes <- c()
   for(j in 1:10){
-    results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
-                                   mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
-                                   recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
-                                   terminators = list(stopOnIters(iterations[1])))
-    hypervolumes <- c(hypervolumes,computeHV(rbind(results_3D.nsga2$pareto.front$y1,results_3D.nsga2$pareto.front$y2), c(400,70)))
+    nsga2.results <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                terminators = list(stopOnIters(iterations[1])))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(nsga2.results$pareto.front$y1,nsga2.results$pareto.front$y2), c(350,70)))
   }
-  hypervolumes_iterations_overview[,i] <- hypervolumes
+  nsga2.hypervolumes_iterations_overview[,i] <- hypervolumes
   
   iterations <- iterations[-1]
   i <- i+1
 }
 iterations_plot <- c(rep(10,10),rep(20,10),rep(30,10),rep(40,10),rep(50,10),rep(60,10),rep(70,10),rep(80,10),rep(90,10),rep(100,10))
-hypervolumes_iterations_plot <- c(hypervolumes_iterations_overview[,1],hypervolumes_iterations_overview[,2],hypervolumes_iterations_overview[,3],hypervolumes_iterations_overview[,4],hypervolumes_iterations_overview[,5],hypervolumes_iterations_overview[,6],hypervolumes_iterations_overview[,7],hypervolumes_iterations_overview[,8],hypervolumes_iterations_overview[,9],hypervolumes_iterations_overview[,10])
-plot(iterations_plot,hypervolumes_iterations_plot)
+nsga2.hypervolumes_iterations_plot <- c(nsga2.hypervolumes_iterations_overview[,1],nsga2.hypervolumes_iterations_overview[,2],nsga2.hypervolumes_iterations_overview[,3],nsga2.hypervolumes_iterations_overview[,4],nsga2.hypervolumes_iterations_overview[,5],nsga2.hypervolumes_iterations_overview[,6],nsga2.hypervolumes_iterations_overview[,7],nsga2.hypervolumes_iterations_overview[,8],nsga2.hypervolumes_iterations_overview[,9],nsga2.hypervolumes_iterations_overview[,10])
+plot(iterations_plot,nsga2.hypervolumes_iterations_plot)
 
 ## Vary population size and plot hypervolume
 population <- seq(20,200,by=20)
-hypervolumes_population_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
-colnames(hypervolumes_population_overview) <- c("20 population","40","60","80","100","120","140","160","180","200")
+nsga2.hypervolumes_population_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(nsga2.hypervolumes_population_overview) <- c("20 population","40","60","80","100","120","140","160","180","200")
 i <- 1
 while(length(population)>0){
   hypervolumes <- c()
   for(j in 1:10){
-    results_3D.nsga2 <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
-                                   mu = population[1], lambda = population[1], mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
-                                   recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
-                                   terminators = list(stopOnIters(50L)))
-    hypervolumes <- c(hypervolumes,computeHV(rbind(results_3D.nsga2$pareto.front$y1,results_3D.nsga2$pareto.front$y2), c(400,70)))
+    nsga2.results <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                mu = population[1], lambda = population[1], mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                terminators = list(stopOnIters(100L)))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(nsga2.results$pareto.front$y1,nsga2.results$pareto.front$y2), c(350,70)))
   }
-  hypervolumes_population_overview[,i] <- hypervolumes
+  nsga2.hypervolumes_population_overview[,i] <- hypervolumes
   
   population <- population[-1]
   i <- i+1
 }
 population_plot <- c(rep(20,10),rep(40,10),rep(60,10),rep(80,10),rep(100,10),rep(120,10),rep(140,10),rep(160,10),rep(180,10),rep(200,10))
-hypervolumes_population_plot <- c(hypervolumes_population_overview[,1],hypervolumes_population_overview[,2],hypervolumes_population_overview[,3],hypervolumes_population_overview[,4],hypervolumes_population_overview[,5],hypervolumes_population_overview[,6],hypervolumes_population_overview[,7],hypervolumes_population_overview[,8],hypervolumes_population_overview[,9],hypervolumes_population_overview[,10])
-plot(population_plot,hypervolumes_population_plot)
+nsga2.hypervolumes_population_plot <- c(nsga2.hypervolumes_population_overview[,1],nsga2.hypervolumes_population_overview[,2],nsga2.hypervolumes_population_overview[,3],nsga2.hypervolumes_population_overview[,4],nsga2.hypervolumes_population_overview[,5],nsga2.hypervolumes_population_overview[,6],nsga2.hypervolumes_population_overview[,7],nsga2.hypervolumes_population_overview[,8],nsga2.hypervolumes_population_overview[,9],nsga2.hypervolumes_population_overview[,10])
+plot(population_plot,nsga2.hypervolumes_population_plot)
 
-### SMS-EMOA
-results_3D.smsemoa <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
-                                   mu = 100L, lambda = mu, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
-                                   recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
-                                   terminators = list(stopOnIters(50000L)))
-points(results_3D.smsemoa$pareto.front, col = "red")
+## Vary mutation probability and plot hypervolume
+mutationprob <- seq(0.1,1,by=0.1)
+nsga2.hypervolumes_mutationprob_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(nsga2.hypervolumes_mutationprob_overview) <- c("0.1 mutation probability","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1.0")
+i <- 1
+while(length(mutationprob)>0){
+  hypervolumes <- c()
+  for(j in 1:10){
+    nsga2.results <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = mutationprob[1], lower = rep(-5,3), upper = rep(5,3)),
+                                recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                terminators = list(stopOnIters(100L)))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(nsga2.results$pareto.front$y1,nsga2.results$pareto.front$y2), c(350,70)))
+  }
+  nsga2.hypervolumes_mutationprob_overview[,i] <- hypervolumes
+  
+  mutationprob <- mutationprob[-1]
+  i <- i+1
+}
+mutationprob_plot <- c(rep(0.1,10),rep(0.2,10),rep(0.3,10),rep(0.4,10),rep(0.5,10),rep(0.6,10),rep(0.7,10),rep(0.8,10),rep(0.9,10),rep(1.0,10))
+nsga2.hypervolumes_mutationprob_plot <- c(nsga2.hypervolumes_mutationprob_overview[,1],nsga2.hypervolumes_mutationprob_overview[,2],nsga2.hypervolumes_mutationprob_overview[,3],nsga2.hypervolumes_mutationprob_overview[,4],nsga2.hypervolumes_mutationprob_overview[,5],nsga2.hypervolumes_mutationprob_overview[,6],nsga2.hypervolumes_mutationprob_overview[,7],nsga2.hypervolumes_mutationprob_overview[,8],nsga2.hypervolumes_mutationprob_overview[,9],nsga2.hypervolumes_mutationprob_overview[,10])
+plot(mutationprob_plot,nsga2.hypervolumes_mutationprob_plot)
 
-computeHV(rbind(results_3D.smsemoa$pareto.front$y1,results_3D.smsemoa$pareto.front$y2), c(400,70))
+## Vary crossover rate and plot hypervolume
+crossoverrate <- seq(0.1,1,by=0.1)
+nsga2.hypervolumes_crossoverrate_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(nsga2.hypervolumes_crossoverrate_overview) <- c("0.1 mutation probability","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1.0")
+i <- 1
+while(length(crossoverrate)>0){
+  hypervolumes <- c()
+  for(j in 1:10){
+    nsga2.results <- ecr::nsga2(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                recombinator = setup(recSBX, eta = 15, p = crossoverrate[1], lower = rep(-5,3), upper = rep(5,3)),
+                                terminators = list(stopOnIters(100L)))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(nsga2.results$pareto.front$y1,nsga2.results$pareto.front$y2), c(350,70)))
+  }
+  nsga2.hypervolumes_crossoverrate_overview[,i] <- hypervolumes
+  
+  crossoverrate <- crossoverrate[-1]
+  i <- i+1
+}
+crossoverrate_plot <- c(rep(0.1,10),rep(0.2,10),rep(0.3,10),rep(0.4,10),rep(0.5,10),rep(0.6,10),rep(0.7,10),rep(0.8,10),rep(0.9,10),rep(1.0,10))
+nsga2.hypervolumes_crossoverrate_plot <- c(nsga2.hypervolumes_crossoverrate_overview[,1],nsga2.hypervolumes_crossoverrate_overview[,2],nsga2.hypervolumes_crossoverrate_overview[,3],nsga2.hypervolumes_crossoverrate_overview[,4],nsga2.hypervolumes_crossoverrate_overview[,5],nsga2.hypervolumes_crossoverrate_overview[,6],nsga2.hypervolumes_crossoverrate_overview[,7],nsga2.hypervolumes_crossoverrate_overview[,8],nsga2.hypervolumes_crossoverrate_overview[,9],nsga2.hypervolumes_crossoverrate_overview[,10])
+plot(crossoverrate_plot,nsga2.hypervolumes_crossoverrate_plot)
 
-### MOEA/D
+### SMS-EMOA ####
+smsemoa.results <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                terminators = list(stopOnIters(5000L)))
+points(smsemoa.results$pareto.front, xlim = c(-150,350), ylim = c(45,70))
+
+computeHV(rbind(smsemoa.results$pareto.front$y1,smsemoa.results$pareto.front$y2), c(350,70))
+
+## Vary iterations size and plot hypervolume
+iterations <- seq(10,100,by=10)
+smsemoa.hypervolumes_iterations_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(smsemoa.hypervolumes_iterations_overview) <- c("10 iterations","20","30","40","50","60","70","80","90","100")
+i <- 1
+while(length(iterations)>0){
+  hypervolumes <- c()
+  for(j in 1:10){
+    smsemoa.results <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                    mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                    recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                    terminators = list(stopOnIters(iterations[1])))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(smsemoa.results$pareto.front$y1,smsemoa.results$pareto.front$y2), c(350,70)))
+  }
+  smsemoa.hypervolumes_iterations_overview[,i] <- hypervolumes
+  
+  iterations <- iterations[-1]
+  i <- i+1
+}
+iterations_plot <- c(rep(10,10),rep(20,10),rep(30,10),rep(40,10),rep(50,10),rep(60,10),rep(70,10),rep(80,10),rep(90,10),rep(100,10))
+smsemoa.hypervolumes_iterations_plot <- c(smsemoa.hypervolumes_iterations_overview[,1],smsemoa.hypervolumes_iterations_overview[,2],smsemoa.hypervolumes_iterations_overview[,3],smsemoa.hypervolumes_iterations_overview[,4],smsemoa.hypervolumes_iterations_overview[,5],smsemoa.hypervolumes_iterations_overview[,6],smsemoa.hypervolumes_iterations_overview[,7],smsemoa.hypervolumes_iterations_overview[,8],smsemoa.hypervolumes_iterations_overview[,9],smsemoa.hypervolumes_iterations_overview[,10])
+plot(iterations_plot,smsemoa.hypervolumes_iterations_plot)
+
+## Vary population size and plot hypervolume
+population <- seq(20,200,by=20)
+smsemoa.hypervolumes_population_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(smsemoa.hypervolumes_population_overview) <- c("20 population","40","60","80","100","120","140","160","180","200")
+i <- 1
+while(length(population)>0){
+  hypervolumes <- c()
+  for(j in 1:10){
+    smsemoa.results <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                    mu = population[1], lambda = population[1], mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                    recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                    terminators = list(stopOnIters(100L)))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(smsemoa.results$pareto.front$y1,smsemoa.results$pareto.front$y2), c(350,70)))
+  }
+  smsemoa.hypervolumes_population_overview[,i] <- hypervolumes
+  
+  population <- population[-1]
+  i <- i+1
+}
+population_plot <- c(rep(20,10),rep(40,10),rep(60,10),rep(80,10),rep(100,10),rep(120,10),rep(140,10),rep(160,10),rep(180,10),rep(200,10))
+smsemoa.hypervolumes_population_plot <- c(smsemoa.hypervolumes_population_overview[,1],smsemoa.hypervolumes_population_overview[,2],smsemoa.hypervolumes_population_overview[,3],smsemoa.hypervolumes_population_overview[,4],smsemoa.hypervolumes_population_overview[,5],smsemoa.hypervolumes_population_overview[,6],smsemoa.hypervolumes_population_overview[,7],smsemoa.hypervolumes_population_overview[,8],smsemoa.hypervolumes_population_overview[,9],smsemoa.hypervolumes_population_overview[,10])
+plot(population_plot,smsemoa.hypervolumes_population_plot)
+
+## Vary mutation probability and plot hypervolume
+mutationprob <- seq(0.1,1,by=0.1)
+smsemoa.hypervolumes_mutationprob_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(smsemoa.hypervolumes_mutationprob_overview) <- c("0.1 mutation probability","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1.0")
+i <- 1
+while(length(mutationprob)>0){
+  hypervolumes <- c()
+  for(j in 1:10){
+    smsemoa.results <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                    mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = mutationprob[1], lower = rep(-5,3), upper = rep(5,3)),
+                                    recombinator = setup(recSBX, eta = 15, p = 0.7, lower = rep(-5,3), upper = rep(5,3)),
+                                    terminators = list(stopOnIters(100L)))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(smsemoa.results$pareto.front$y1,smsemoa.results$pareto.front$y2), c(350,70)))
+  }
+  smsemoa.hypervolumes_mutationprob_overview[,i] <- hypervolumes
+  
+  mutationprob <- mutationprob[-1]
+  i <- i+1
+}
+mutationprob_plot <- c(rep(0.1,10),rep(0.2,10),rep(0.3,10),rep(0.4,10),rep(0.5,10),rep(0.6,10),rep(0.7,10),rep(0.8,10),rep(0.9,10),rep(1.0,10))
+smsemoa.hypervolumes_mutationprob_plot <- c(smsemoa.hypervolumes_mutationprob_overview[,1],smsemoa.hypervolumes_mutationprob_overview[,2],smsemoa.hypervolumes_mutationprob_overview[,3],smsemoa.hypervolumes_mutationprob_overview[,4],smsemoa.hypervolumes_mutationprob_overview[,5],smsemoa.hypervolumes_mutationprob_overview[,6],smsemoa.hypervolumes_mutationprob_overview[,7],smsemoa.hypervolumes_mutationprob_overview[,8],smsemoa.hypervolumes_mutationprob_overview[,9],smsemoa.hypervolumes_mutationprob_overview[,10])
+plot(mutationprob_plot,smsemoa.hypervolumes_mutationprob_plot)
+
+## Vary crossover rate and plot hypervolume
+crossoverrate <- seq(0.1,1,by=0.1)
+smsemoa.hypervolumes_crossoverrate_overview <- data.frame(c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10),c(1:10))
+colnames(smsemoa.hypervolumes_crossoverrate_overview) <- c("0.1 mutation probability","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1.0")
+i <- 1
+while(length(crossoverrate)>0){
+  hypervolumes <- c()
+  for(j in 1:10){
+    smsemoa.results <- ecr::smsemoa(fitness.fun = opti_3D_functions, n.objectives = 2, n.dim = 3, lower = rep(-5,3), upper = rep(5,3),
+                                    mu = 100L, lambda = 100L, mutator = setup(mutPolynomial, eta = 25, p = 0.2, lower = rep(-5,3), upper = rep(5,3)),
+                                    recombinator = setup(recSBX, eta = 15, p = crossoverrate[1], lower = rep(-5,3), upper = rep(5,3)),
+                                    terminators = list(stopOnIters(100L)))
+    hypervolumes <- c(hypervolumes,computeHV(rbind(smsemoa.results$pareto.front$y1,smsemoa.results$pareto.front$y2), c(350,70)))
+  }
+  smsemoa.hypervolumes_crossoverrate_overview[,i] <- hypervolumes
+  
+  crossoverrate <- crossoverrate[-1]
+  i <- i+1
+}
+crossoverrate_plot <- c(rep(0.1,10),rep(0.2,10),rep(0.3,10),rep(0.4,10),rep(0.5,10),rep(0.6,10),rep(0.7,10),rep(0.8,10),rep(0.9,10),rep(1.0,10))
+smsemoa.hypervolumes_crossoverrate_plot <- c(smsemoa.hypervolumes_crossoverrate_overview[,1],smsemoa.hypervolumes_crossoverrate_overview[,2],smsemoa.hypervolumes_crossoverrate_overview[,3],smsemoa.hypervolumes_crossoverrate_overview[,4],smsemoa.hypervolumes_crossoverrate_overview[,5],smsemoa.hypervolumes_crossoverrate_overview[,6],smsemoa.hypervolumes_crossoverrate_overview[,7],smsemoa.hypervolumes_crossoverrate_overview[,8],smsemoa.hypervolumes_crossoverrate_overview[,9],smsemoa.hypervolumes_crossoverrate_overview[,10])
+plot(crossoverrate_plot,smsemoa.hypervolumes_crossoverrate_plot)
+
+### MOEA/D ####
 problem   <- list(name       = "opti_3D_functions_moead",
                   xmin       = rep(-5, 3),
                   xmax       = rep(5, 3),
                   m          = 2)
 decomp    <- list(name       = "sld", H = 99)
+aggfun    <- list(name       = "awt")
 neighbors <- list(name       = "lambda",
                   T          = 20,
                   delta.p    = 1)
-aggfun    <- list(name       = "wt")
 variation <- list(list(name  = "sbx",
                        etax  = 20, pc = 1),
                   list(name  = "polymut",
@@ -182,21 +314,21 @@ variation <- list(list(name  = "sbx",
                   list(name  = "truncate"))
 update    <- list(name       = "standard", 
                   UseArchive = FALSE)
-scaling   <- list(name       = "none")
 constraint<- list(name       = "none")
+scaling   <- list(name       = "none")
 stopcrit  <- list(list(name  = "maxiter",
-                       maxiter  = 1000))
+                       maxiter  = 100L))
 showpars  <- list(show.iters = "dots",
                   showevery  = 10)
 seed      <- NULL
 
-results_3D.moead <- moead(problem = problem, 
-              decomp = decomp, aggfun = aggfun, neighbors = neighbors, variation = variation, 
-              update = update, constraint = constraint, scaling = scaling, stopcrit = stopcrit,
-              showpars = showpars, seed = seed)
-points(results_3D.moead$Y[,1], results_3D.moead$Y[,2], col = "green")
+moead.results <- moead(problem = problem,
+                       decomp = decomp, aggfun = aggfun, neighbors = neighbors, variation = variation,
+                       update = update, constraint = constraint, scaling = scaling, stopcrit = stopcrit,
+                       showpars = showpars, seed = seed)
+plot(results_3D.moead$Y[,1], results_3D.moead$Y[,2], xlim = c(-150,350), ylim = c(45,70))
 
-computeHV(rbind(results_3D.moead$Y[,1],results_3D.moead$Y[,2]), c(400,70))
+computeHV(rbind(results_3D.moead$Y[,1],results_3D.moead$Y[,2]), c(350,70))
 
 #### Test calls ####
 ### 2D functions
