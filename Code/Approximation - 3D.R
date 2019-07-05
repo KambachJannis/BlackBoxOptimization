@@ -43,8 +43,7 @@ include_noise = F
 
 # Measure evolution of performance
 benchresults = c()
-benchbelieve = c()
-benchbelieve_old = c()
+benchbelieve = data.frame(Round=c(0),Learner=c("none"),Believed_Perf=c(0))
 
 # Function
 func_i = 2
@@ -57,6 +56,7 @@ colnames(f.samples)=c("x","y","z")
 res = batch_apirequest(f.samples %>% select(x,y,z), func_i, "api-test3D",call_counter)
 f.samples$f = res[[1]]
 call_counter= res[[2]]
+saveRDS(f.samples,paste(func,"-samples-",call_counter,".Rds",sep=""))
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------- .
@@ -176,7 +176,6 @@ while(call_counter <= max_calls - new_observations_per_call & round<51) {
   f.lrn.best$control = makeTuneControlRandom(maxit=100)
   
   # Train the model (automatically run hyperparameter tuning for best learner on whole dataset)
-  if(exists("f.mdl.best")) f.mdl.old = f.mdl.best
   f.mdl.best = quiet(train(learner = f.lrn.best, task = f.task))
 
   
@@ -198,7 +197,7 @@ while(call_counter <= max_calls - new_observations_per_call & round<51) {
   # Only with our sample data
   bench.pred = predict(f.mdl.best, newdata = f.samples %>% select(x,y,z,f))
   best.performance = performance(pred = bench.pred, measures = rmse)
-  benchbelieve = c(benchbelieve, best.performance)
+  benchbelieve = benchbelieve %>% union(data.frame(Round=round,Learner=f.mdl.best$learner$id,Believed_Perf=best.performance))
   
   if(!exists("mdl.globalbest")){
     print(paste("Initialize global best model with believed performance of rmse=",best.performance,sep=""))
@@ -289,17 +288,28 @@ while(call_counter <= max_calls - new_observations_per_call & round<51) {
                         weight=((f.fetch$estimrse-min(f.fetch$estimrse))**10)) %>% select(x,y,z)
   
   # Plot map
-  # plot(error_bench$x,error_bench$y,xlim=c(-5,5),ylim=c(-5,5),pch=19,col=toCol(error_bench$estimrse),xlab="x",ylab="y",main="Information value landscape and selected points")
-  # points(f.samples$x,f.samples$y,col="black",pch=3)
-  # points(f.fetch_n$x,f.fetch_n$y,col="red",pch=3)
+   plot(error_bench$x,error_bench$y,xlim=c(-5,5),ylim=c(-5,5),pch=19,col=alpha(toCol(error_bench$estimrse),1),xlab="x",ylab="y",main="Information value landscape and selected points")
+   points(f.samples$x,f.samples$y,col="black",pch=3)
+   points(f.fetch_n$x,f.fetch_n$y,col="red",pch=3)
+  
+  error_bench = error_bench %>% mutate(colour = toCol(estimrse))
+  
+  #plots = lapply(-5:4, function(i) plot_ly(error_bench %>% filter(z>i & z<(i+1)),x=~x,y=~y,type="scatter", name=paste(i,"<z<",i+1,sep=""),
+  #                                         mode="markers",marker=list(color = ~colour, size=10,
+  #                                                                   opacity=0.7), showlegend=F))
+  #subplot(plots,nrows = 2)
+  
   
   # Call API and add new observations to sampleset
   res = batch_apirequest(f.fetch_n %>% select(x,y,z), func_i, "api-test3D",call_counter)
   f.fetch_n$f = res[[1]]
   call_counter = res[[2]]
+  saveRDS(f.samples,paste(func,"-samples-",call_counter,".Rds",sep=""))
+  saveRDS(error_bench,paste(func,"-infvalue-",call_counter,".Rds",sep=""))
+  saveRDS(f.fetch_n,paste(func,"-fetch_n-",call_counter,".Rds",sep=""))
   
   f.samples = f.samples %>% union(f.fetch_n)
-  round = round +1
+  round = round + 1
   }
   
 
@@ -331,12 +341,12 @@ fplot(benchmark,f="f")
 # ---------------------------------------------------------------------------------------------------------------------------------------------- .
 
 plot(benchresults,xlab="Round",ylab="Rmse",main="Performance over rounds",ylim=c(0,max(benchresults)))
-for(i in seq(40,51,by=1)){
+for(i in seq(1,51,by=1)){
 tosample = 200 + (i-1)*10
 
-comp.samples = as.data.frame(lhs::randomLHS(n = tosample,k=3)) %>% rename(x=V1,y=V2,z=V3) %>% mutate(x=x*10-5,y=y*10-5,z=z*10-5)
+#comp.samples = as.data.frame(lhs::randomLHS(n = tosample,k=3)) %>% rename(x=V1,y=V2,z=V3) %>% mutate(x=x*10-5,y=y*10-5,z=z*10-5)
   
-#comp.samples = as.data.frame(expand.grid(seq(-5,5,length.out=floor(sqrt(tosample))),seq(-5,5,length.out=floor(sqrt(tosample)))))
+comp.samples = as.data.frame(expand.grid(seq(-5,5,length.out=floor(tosample^(1/3))),seq(-5,5,length.out=floor(tosample^(1/3))),seq(-5,5,length.out=floor(tosample^(1/3)))))
 
 colnames(comp.samples)=c("x","y","z")
 res = batch_apirequest(comp.samples %>% select(x,y,z), func_i, "api-test3D")

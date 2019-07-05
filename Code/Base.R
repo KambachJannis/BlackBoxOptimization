@@ -9,9 +9,9 @@ token="77aa1a29dc734cd0ad7ef71503b860ad"
 if (!require("httr")) library(httr)
 if (!require("jsonlite")) library(jsonlite)
 apirequest = function(input, func, endpoint){
-   if(endpoint=="api"){
-     return("Don't call the real api, you're wasting our budget! :D")
-   }
+   #if(endpoint=="api"){
+   #  return("Don't call the real api, you're wasting our budget! :D")
+   #}
   input_intermediate = 1:nrow(input)
   for(i in 1:nrow(input)){
     input_intermediate[i]=paste0(input[i,],collapse = ",")
@@ -116,8 +116,8 @@ f1f2plot = function(sampledata,f_1="f1",f_2="f2",scaleit=T){
 }
 
 toCol = function(x,resolution=50){
-  color=resolution*(x-min(x))/(max(x)-min(x))
-  viridisLite::viridis(resolution)[floor(color)]
+  color=(resolution*(x-min(x))/(max(x)-min(x))+1)
+  return(viridisLite::viridis(resolution+1)[floor(color)])
 }
 
 quiet = function(x){
