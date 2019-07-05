@@ -120,3 +120,9 @@ toCol = function(x,resolution=50){
   viridisLite::viridis(resolution)[floor(color)]
 }
 
+quiet = function(x){
+  sink(tempfile())
+  on.exit(sink())
+  invisible(force(x))
+}
+
