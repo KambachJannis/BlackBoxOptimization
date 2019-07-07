@@ -261,16 +261,7 @@ while(call_counter <= max_calls - new_observations_per_call) {
                         weight=((f.fetch$estimrse-min(f.fetch$estimrse))**10)) %>% select(x,y,z)
   
   # Plot map
-   plot(error_bench$x,error_bench$y,xlim=c(-5,5),ylim=c(-5,5),pch=19,col=alpha(toCol(error_bench$estimrse),1),xlab="x",ylab="y",main="Information value landscape and selected points")
-   points(f.samples$x,f.samples$y,col="black",pch=3)
-   points(f.fetch_n$x,f.fetch_n$y,col="red",pch=3)
-  
-  error_bench = error_bench %>% mutate(colour = toCol(estimrse))
-  
-  #plots = lapply(-5:4, function(i) plot_ly(error_bench %>% filter(z>i & z<(i+1)),x=~x,y=~y,type="scatter", name=paste(i,"<z<",i+1,sep=""),
-  #                                         mode="markers",marker=list(color = ~colour, size=10,
-  #                                                                   opacity=0.7), showlegend=F))
-  #subplot(plots,nrows = 2)
+  sliceplot(error_bench %>% rename(f=estimrse),legend="rmse contribution") #function value column needs to be called f
   
   
   # Call API and add new observations to sampleset
@@ -348,8 +339,34 @@ f.lrn.best$control = makeTuneControlRandom(maxit=500)
 
 mdl.final = quiet(train(learner = f.lrn.best, task = f.task))
 
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Visualize observations
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
 
-#Other
+# 3D plot                                                                                                                                             
+fplot(f.samples,f="f")
+
+# Slice plot
+sliceplot(f.samples)
+
+# Slice plot of final model
+finalpreds = predict(mdl.final,newdata=densegrid)
+sliceplot(cbind(densegrid,finalpreds$data$response)%>%rename(f='finalpreds$data$response'))
+
+
+# Tried slice-plots with plotly, but doesn't really work
+f.samples = f.samples %>% mutate(colour = toCol(f))
+plots = lapply(4:-5, function(i) {
+  plot_ly(f.samples %>% filter(z>=i & z<(i+1)),
+          x=~x,y=~y,type="scatter", name=paste(i+1,">z>=",i,sep=""),
+          mode="markers",
+          marker=list(color = ~colour, size=7,opacity=0.7), showlegend=F) %>%
+          layout(xaxis = list(title=paste(i+1,">z>=",i,sep="")), showlegend = FALSE
+                 )
+})
+
+
+#Other Stuff
 
 
 bench.pred = predict(f.mdl.best, newdata = benchmark)

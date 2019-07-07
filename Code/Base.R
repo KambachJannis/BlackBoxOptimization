@@ -90,7 +90,7 @@ fplot = function(sampledata,f,type3d="markers"){
                         zaxis = list(title="Function Value")))
   } else{
     if(type3d=="markers"){
-      plot = plot_ly(sampledata,type="scatter3d", mode="markers",marker = list(color = as.formula(paste("~",f,sep="")),colorscale = "Viridis", reversescale=T, opacity=0.7, showscale = TRUE))
+      plot = plot_ly(sampledata,type="scatter3d", mode="markers",marker = list(color = as.formula(paste("~",f,sep="")),colorscale = "Viridis", reversescale=F, opacity=0.7, showscale = TRUE))
     }
     else{plot = plot_ly(sampledata,type="isosurface",colorscale = "Viridis", reversescale=T, value=as.formula(paste("~",f,sep="")))}
     
@@ -126,3 +126,15 @@ quiet = function(x){
   invisible(force(x))
 }
 
+sliceplot = function(data3D,title="Sliced function landscape",legend="function value"){
+  # The function value has to be in a column named f
+  data3D= data3D %>%
+    mutate(group = factor(paste(floor(z)+1,">z>=",floor(z),sep=""),levels= 
+                            c("5>z>=4","4>z>=3","3>z>=2","2>z>=1","1>z>=0","0>z>=-1","-1>z>=-2","-2>z>=-3","-3>z>=-4","-4>z>=-5")))
+  ggplot(data3D, aes(x = x, y = y, color = f)) +
+    geom_point() +
+    facet_wrap( ~ group,nrow=2) +
+    scale_colour_gradientn(colours = viridisLite::viridis(50), name=legend) +
+    theme_minimal() +
+    ggtitle(title)
+}
