@@ -132,9 +132,27 @@ sliceplot = function(data3D,title="Sliced function landscape",legend="function v
     mutate(group = factor(paste(floor(z)+1,">z>=",floor(z),sep=""),levels= 
                             c("5>z>=4","4>z>=3","3>z>=2","2>z>=1","1>z>=0","0>z>=-1","-1>z>=-2","-2>z>=-3","-3>z>=-4","-4>z>=-5")))
   ggplot(data3D, aes(x = x, y = y, color = f)) +
-    geom_point(alpha=0.7,shape=15,size=2 +
+    geom_point(alpha=0.7,shape=15,size=2) +
     facet_wrap( ~ group,nrow=2) +
     scale_colour_gradientn(colours = viridisLite::viridis(100), name=legend) +
+    theme_minimal() +
+    ggtitle(title)
+}
+
+importanceplot = function(data3D,querydata,title="Sliced function landscape",legend="importance score"){
+  data3D = data3D %>%
+    mutate(group = factor(paste(floor(z)+1,">z>=",floor(z),sep=""),levels= 
+                            c("5>z>=4","4>z>=3","3>z>=2","2>z>=1","1>z>=0","0>z>=-1","-1>z>=-2","-2>z>=-3","-3>z>=-4","-4>z>=-5")))
+  querydata = querydata %>%
+    mutate(group = factor(paste(floor(z)+1,">z>=",floor(z),sep=""),levels= 
+                            c("5>z>=4","4>z>=3","3>z>=2","2>z>=1","1>z>=0","0>z>=-1","-1>z>=-2","-2>z>=-3","-3>z>=-4","-4>z>=-5")))
+  
+  ggplot(data3D, aes(x = x, y = y)) +
+    geom_point(alpha=0.7,shape=22,size=2, aes(fill = f, colour=f)) +
+    geom_point(data=querydata, aes(x=x,y=y,fill=estimrse), colour="red", shape=18,size=3) +
+    scale_colour_gradientn(colours = viridisLite::viridis(100), name=legend) +
+    scale_fill_gradientn(colours = viridisLite::viridis(100), name=legend) +
+    facet_wrap( ~ group,nrow=2) +
     theme_minimal() +
     ggtitle(title)
 }
