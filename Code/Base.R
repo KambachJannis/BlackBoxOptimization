@@ -149,7 +149,7 @@ importanceplot = function(data3D,querydata,title="Sliced function landscape",leg
   
   ggplot(data3D, aes(x = x, y = y)) +
     geom_point(alpha=0.7,shape=22,size=2, aes(fill = f, colour=f)) +
-    geom_point(data=querydata, aes(x=x,y=y,fill=estimrse), colour="red", shape=18,size=3) +
+    geom_point(data=querydata, aes(x=x,y=y), colour="red", shape=18,size=3) +
     scale_colour_gradientn(colours = viridisLite::viridis(100), name=legend) +
     scale_fill_gradientn(colours = viridisLite::viridis(100), name=legend) +
     facet_wrap( ~ group,nrow=2) +
