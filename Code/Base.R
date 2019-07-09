@@ -92,7 +92,7 @@ fplot = function(sampledata,f,type3d="markers"){
     if(type3d=="markers"){
       plot = plot_ly(sampledata,type="scatter3d", mode="markers",marker = list(color = as.formula(paste("~",f,sep="")),colorscale = "Viridis", reversescale=F, opacity=0.7, showscale = TRUE))
     }
-    else{plot = plot_ly(sampledata,type="isosurface",colorscale = "Viridis", reversescale=T, value=as.formula(paste("~",f,sep="")))}
+    else{plot = plot_ly(sampledata,type="isosurface",colorscale = "Viridis", reversescale=F, value=as.formula(paste("~",f,sep="")))}
     
     plot = plot %>% layout(title=paste("Function Landscape Approximation for",f),
                            scene = list(xaxis = list(title="X"),
@@ -132,9 +132,9 @@ sliceplot = function(data3D,title="Sliced function landscape",legend="function v
     mutate(group = factor(paste(floor(z)+1,">z>=",floor(z),sep=""),levels= 
                             c("5>z>=4","4>z>=3","3>z>=2","2>z>=1","1>z>=0","0>z>=-1","-1>z>=-2","-2>z>=-3","-3>z>=-4","-4>z>=-5")))
   ggplot(data3D, aes(x = x, y = y, color = f)) +
-    geom_point() +
+    geom_point(alpha=0.7,shape=15,size=2 +
     facet_wrap( ~ group,nrow=2) +
-    scale_colour_gradientn(colours = viridisLite::viridis(50), name=legend) +
+    scale_colour_gradientn(colours = viridisLite::viridis(100), name=legend) +
     theme_minimal() +
     ggtitle(title)
 }

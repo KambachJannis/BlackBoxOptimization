@@ -350,8 +350,13 @@ fplot(f.samples,f="f")
 sliceplot(f.samples)
 
 # Slice plot of final model
-finalpreds = predict(mdl.final,newdata=densegrid)
-sliceplot(cbind(densegrid,finalpreds$data$response)%>%rename(f='finalpreds$data$response'))
+regulardensegrid = as.data.frame(expand.grid(seq(-5,5,length.out=25),seq(-5,5,length.out=25),seq(-4.9999,4.99999,length.out=25)))
+colnames(regulardensegrid) = c("x","y","z")
+finalpreds = predict(mdl.final,newdata=regulardensegrid)
+finalmap = cbind(regulardensegrid,finalpreds$data$response)%>%rename(f='finalpreds$data$response')
+sliceplot(finalmap)
+
+fplot(finalmap,f="f")
 
 
 # Tried slice-plots with plotly, but doesn't really work
