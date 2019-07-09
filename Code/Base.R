@@ -73,11 +73,10 @@ batch_apirequest = function(input, func, endpoint, call_counter=0){
   return(list(results,call_counter))
 }
 
-testf = function() {
-  call_counter <<- call_counter + 50
-  print(call_counter)}
-
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
 # Helper functions for plotting
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+
 fplot = function(sampledata,f,type3d="markers"){
   # Plot function, assuming that values are stored in column f
   if(!"z" %in% colnames(sampledata)){
@@ -120,12 +119,6 @@ toCol = function(x,resolution=50){
   return(viridisLite::viridis(resolution+1)[floor(color)])
 }
 
-quiet = function(x){
-  sink(tempfile())
-  on.exit(sink())
-  invisible(force(x))
-}
-
 sliceplot = function(data3D,title="Sliced function landscape",legend="function value"){
   # The function value has to be in a column named f
   data3D= data3D %>%
@@ -155,4 +148,14 @@ importanceplot = function(data3D,querydata,title="Sliced function landscape",leg
     facet_wrap( ~ group,nrow=2) +
     theme_minimal() +
     ggtitle(title)
+}
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Helper function for making resampling silent
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+
+quiet = function(x){
+  sink(tempfile())
+  on.exit(sink())
+  invisible(force(x))
 }
