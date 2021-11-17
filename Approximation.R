@@ -1,285 +1,325 @@
-###########################################################
+#################################################################################################################################################.
 source("Base.R")
-###########################################################
-#......... Approximation of Value Functions ..............#
-###########################################################
-#### Test calls and Plots ####
+#################################################################################################################################################.
+#......... Approximation of 3D Value Functions ..............#
 
-samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
-colnames(samples)=c("x","y")
-samples$f1 = batch_apirequest(samples[1:2], 1, "api-test2D")
-samples$f2 = batch_apirequest(samples[1:2], 2, "api-test2D")
+{
+# Set the function here
+func_i = 2
+func = paste("f",func_i,sep="")
 
-fplot(samples,f = "f2")
-
-# Plot both function values for pareto front
-plot_ly(samples) %>% add_trace(x=~f1,y=~f2,type="scatter",mode="markers")
-
-# Plotting example (3D plot)
-library(plotly)
-
-fplot(samples,"f1")
-fplot(samples,"f2")
-f1f2plot(samples,scaleit=T)
-
-# 3D
-samples3D = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1),seq(-5,5,by=1)))
-colnames(samples3D)=c("x","y","z")
-samples3D$f1 = batch_apirequest(samples3D[1:3], 1, "api-test3D")
-samples3D$f2 = batch_apirequest(samples3D[1:3], 2, "api-test3D")
-
-fplot(samples3D,"f2",type3d = "surface")
-
-###########################################################
-#### First approximation try ####
-# Get first observations
-samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
-colnames(samples)=c("x","y")
-samples$f1 = batch_apirequest(samples[,1:2], 1, "api-test2D")
-samples$f2 = batch_apirequest(samples[,1:2], 2, "api-test2D")
-
-library(mlr)
-fplot(samples,"f1")
-
-# Learn f1
-f1.task = makeRegrTask(data = samples, target = "f1")
-f1.lrn.svm = makeLearner(cl = "regr.ksvm",id="svm")
-
-f1.mdl.svm = train(learner=f1.lrn.svm, task=f1.task)
-
-# Get more observations
-new_samples = as.data.frame(expand.grid(seq(-4.5,4.5,by=1),seq(-4.5,4.5,by=1)))
-colnames(new_samples)=c("x","y")
-new_samples$f1 = batch_apirequest(new_samples[,1:2], 1, "api-test2D")
-new_samples$f2 = batch_apirequest(new_samples[,1:2], 2, "api-test2D")
-# add to samples
-samples = rbind(samples,new_samples)
-
-# make new predictions
-f1.pred.svm = predict(f1.mdl.svm, newdata = new_samples)
-# evaluate predictions (mean squared error)
-performance(pred = f1.pred.svm, measures = mse)
-
-# compare approximations
-# predict all observations (training and test)
-f1.pred.all=predict(f1.mdl.svm, newdata = samples)
-samples$f1pred = f1.pred.all$data$response
-samples$f1err = (samples$f1pred - samples$f1)
-# Plot predicted values
-fplot(samples,"f1pred")
-# Plot prediction error
-fplot(samples,"f1err")
-
-# Plot real values and prediction
-f1f2plot(samples,f_2="f1pred",scaleit=F)
-
-###########################################################
-#### BENCHMARKING ####
-# Call all data from dense grid for benchmarking
-benchmark = as.data.frame(expand.grid(seq(-5,5,length.out = floor(sqrt(10000))),seq(-5,5,length.out = floor(sqrt(10000)))))
-colnames(benchmark)=c("x","y")
-benchmark$f1 = batch_apirequest(benchmark %>% select(x,y), 1, "api-test2D")[[1]]
-benchmark$f2 = batch_apirequest(benchmark %>% select(x,y), 2, "api-test2D")[[1]]
-saveRDS(benchmark,"BenchmarkTest2D")
-
-# Load
-benchmark = readRDS("BenchmarkTest2D")
-###########################################################
-#### Learn f1 with resampling
+api="api"
+  
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Learn function with resampling
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
 
 # Define dense grid for observation selection
 max_samples = 10000 # adjust so it is not too computationally expensive
-densegrid = as.data.frame(expand.grid(seq(-5,5,length.out = floor(sqrt(max_samples))),seq(-5,5,length.out = floor(sqrt(max_samples)))))
-colnames(densegrid)=c("x","y")
+densegrid = as.data.frame(lhs::randomLHS(n = max_samples,k=3)) %>% rename(x=V1,y=V2,z=V3) %>% mutate(x=x*10-5,y=y*10-5,z=z*10-5)
+colnames(densegrid)=c("x","y","z")
 
 # Counts all calls made so far
 call_counter=0
 # Maximum number of calls that can be made in loop
 max_calls = 1000
-# Number of new observations called per loop run
-new_observations_per_call=100
 
-# Should noise be included in prediction interval estimation?
-include_noise = F
+# Number of observations called at the beginning
+number_of_first_observations=200
+# Number of new observations called per loop run
+new_observations_per_call=10
 
 # Measure evolution of performance
-benchresults = c()
+benchbelieve = data.frame(Round=c(0),Learner=c("none"),Believed_Perf=c(0))
 
 # Get first observations
-f1.samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
-colnames(f1.samples)=c("x","y")
-res = batch_apirequest(f1.samples %>% select(x,y), 1, "api-test2D",call_counter)
-f1.samples$f1 = res[[1]]
+f.samples = as.data.frame(lhs::randomLHS(n = number_of_first_observations,k=3)) %>% rename(x=V1,y=V2) %>% mutate(x=x*10-5,y=y*10-5)
+colnames(f.samples)=c("x","y","z")
+res = batch_apirequest(f.samples %>% select(x,y,z), func_i, api,call_counter)
+f.samples$f = res[[1]]
 call_counter= res[[2]]
+saveRDS(f.samples,paste(func,"-samples-",call_counter,".Rds",sep=""))
 
-f2.samples = as.data.frame(expand.grid(seq(-5,5,by=1),seq(-5,5,by=1)))
-colnames(f2.samples)=c("x","y")
-res = batch_apirequest(f2.samples %>% select(x,y), 2, "api-test2D",call_counter)
-f2.samples$f2 = res[[1]]
-call_counter= res[[2]]
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Preparation of learners and hyperparameters
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+
+inner = makeResampleDesc("Subsample", iters = 4)
+outer = makeResampleDesc("CV", iters = 5)
+ctrl = makeTuneControlRandom(maxit = 30)
+
+learners = list(
+"regr.ksvm.tuned" = 
+  makeTuneWrapper("regr.ksvm",
+                  resampling = inner,
+                  measures=rmse,
+                  par.set = makeParamSet(
+                    makeNumericParam(id = "C",  upper = 10, lower = -5, trafo = function(x) 2^x, default = log2(1)),
+                    makeNumericParam(id = "sigma", upper = 15, lower = -15, trafo = function(x) 2^x),
+                    keys = "task"
+                  ),
+                  control = ctrl,
+                  show.info = FALSE),
+"regr.xgboost.tuned"=  
+  makeTuneWrapper("regr.xgboost",
+                  resampling = inner,
+                  measures=rmse,
+                  par.set = makeParamSet(
+                    makeNumericParam(id = "nrounds", lower = log2(10/10), upper = log2(100/10), trafo = function(x) round(2^x * 10)),
+                    makeIntegerParam(id = "max_depth", lower = 3L, upper = 10L),
+                    makeNumericParam(id = "eta", lower = 0.001, upper = 0.3),
+                    makeNumericParam(id = "gamma", lower = 0, upper = 10),
+                    makeNumericParam(id = "colsample_bytree", lower = 0.3, upper = 0.7),
+                    makeNumericParam(id = "min_child_weight", lower = 0, upper = 20),
+                    makeNumericParam(id = "subsample", lower = 0.25, upper = 1)
+                  ),
+                  control = ctrl,
+                  show.info = FALSE),
+"regr.randomForest.tuned"=  
+  makeTuneWrapper("regr.randomForest",
+                  resampling = inner,
+                  measures=rmse,
+                  makeParamSet(
+                    makeIntegerParam("nodesize", lower = 1, upper = 10, default = 1),
+                    makeIntegerParam(id = "mtry", lower = 1L, upper = 2L)
+                  ),
+                  control = ctrl,
+                  show.info = FALSE),
+"regr.kknn.tuned"=  
+  makeTuneWrapper("regr.kknn",
+                  resampling = inner,
+                  measures=rmse,
+                  par.set = makeParamSet(
+                    makeIntegerParam("k", lower = 2, upper = 20),
+                    makeDiscreteParam("kernel", values = c("rectangular","triangular", "epanechnikov","biweight","tri-weight","cos", "inv", "gaussian", "rank","optimal"))
+                  ),
+                  control = ctrl,
+                  show.info = FALSE),
+"regr.nnet.tuned"=
+  makeTuneWrapper("regr.nnet",
+                  resampling = inner,
+                  measures=rmse,
+                  par.set = makeParamSet(
+                    makeIntegerParam(id = "size", lower = 1L, upper = 20L),
+                    makeNumericParam(id = "decay", lower = -5, upper = 1, trafo = function(x) 10^x)
+                  ),
+                  control = ctrl,
+                  show.info = FALSE)
+)
+
+losertable = data.frame(learner.id=c("regr.ksvm.tuned","regr.xgboost.tuned","regr.randomForest.tuned","regr.kknn.tuned","regr.nnet.tuned"),lifepoints=rep(5,5),stringsAsFactors = F)
+
+round=1
+
+}
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Approximation Loop
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
 
 while(call_counter <= max_calls - new_observations_per_call) {
-  # Define tasks and learners
-  f1.task = makeRegrTask(data = f1.samples, target = "f1")
-  f1.lrn.svm = makeLearner(cl = "regr.ksvm",id="svm")
+  {
+    {
+  print("-----------------------------------------------------------------------------------")
+  print(paste("Round",round))
   
-  f2.task = makeRegrTask(data = f2.samples, target = "f2")
-  f2.lrn.svm = makeLearner(cl = "regr.ksvm",id="svm")
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  # Find and train best learner
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
   
-  #### Perform all resampling and model selection here
-  # TODO
-  # make nested resampling (with hyperparameter tuning) to find best learner class
-  # choose best learner, tune hyperparameters on all observations
-  # Output: One learner class with trained hyperparameters (we call it "best learner")
-  f1.lrn.best = f1.lrn.svm # placeholder
-  f2.lrn.best = f2.lrn.svm # placeholder
+  # Define tasks
+  f.task = makeRegrTask(data = f.samples, target = "f")
   
-  #### Run Hyperparameter Tuning on whole dataset
-  # TODO
-  f1.mdl.best = train(learner = f1.lrn.best, task = f1.task)
-  
-  
-  # -------------------------------------------------------- .
-  # Benchmark current model
-  bench.pred = predict(f1.mdl.best, newdata = benchmark)
-  performance(pred = bench.pred, measures = rmse)
-  benchresults = c(benchresults,performance(pred = bench.pred, measures = rmse))
-  # -------------------------------------------------------- .
-  
-  
-  #### Analyse noise and model variance
-  # Define resampling strategy
-  boots = makeResampleDesc(method = "Bootstrap", iters=100, predict="both")
-  
-  # Resample best learner
-  f1.perf.best = resample(f1.lrn.best, f1.task, boots, measures = mse, models=T)
-  
-  # For each observation, calculate mean regression ^y_i (meanpred) and model variance sigma²_^y_i (varpred)
-  f1.pred = as.data.frame(f1.perf.best$pred)
-  f1.predstat = f1.pred %>% group_by(id) %>%
-    summarize(meanpred = mean(response),
-              varpred = var(response))
-  
-  f1.predstat = cbind(f1.samples,f1.predstat)
-  f1.predstat = f1.predstat %>% mutate(rmse=sqrt((f1-meanpred)**2))
-  
-  if(include_noise){
-    # Build training set of residuals (error variance / noise)
-    f1.predstat = f1.predstat %>% mutate(r_squared = pmax((f1-meanpred)**2 - varpred,0))
-    # Make training set for noise estimation
-    D = f1.predstat %>%
-      mutate(r_log=log(r_squared+0.0000000000001)) %>%
-      select("x","y","r_log")  # TODO add z dimension
-
-    D.task = makeRegrTask(data=D,target="r_log")
-    D.measure = makeMeasure(id = "C_BS",
-                            minimize = TRUE,
-                            properties = c("regr", "response"),
-                            fun = function(task, model, pred, feats, extra.args){
-                              print(pred$data$response)
-                              0.5 * sum(log(exp(pred$data$response)-0.0000000000001) + (exp(pred$data$truth)-0.0000000000001)/(exp(pred$data$response)-0.0000000000001))})
-    
-    # Make learner and tune hyperparameters
-    D.lrn = makeLearner("regr.xgboost",id="noise_learner",
-                        par.vals = list(
-                          objective = "reg:linear",
-                          nrounds = 50))
-    D.paramset = makeParamSet(
-      makeNumericParam("eta", lower = 0.05, upper = 0.5),
-      makeIntegerParam("max_depth",lower=3,upper=8),
-      makeNumericParam("lambda",lower=0,upper=0.50),
-      makeNumericParam("subsample", lower = 0.10, upper = 0.80),
-      makeNumericParam("min_child_weight",lower=1,upper=3)
-    ) # select parameters to tune
-    
-    D.contrl = makeTuneControlRandom(maxit = 50)
-    D.resDesc=makeResampleDesc("CV", iters = 10)
-    
-    parallelMap::parallelStartSocket(4)
-    D.tunedparams = tuneParams(learner=D.lrn,task=D.task,
-                               resampling=D.resDesc,
-                               measures = list(D.measure),
-                               par.set = D.paramset,control = D.contrl)
+  if(length(learners)>1){
+    # Evaluate all learners with nested resampling
+    parallelMap::parallelStartSocket(6)
+    nestedResamplingResults = as.data.frame(benchmark(learners,f.task,outer,measures=rmse,show.info=FALSE,keep.pred=F,models=F),stringsAsFactors = F) %>%
+      group_by(learner.id) %>% summarize(rmse = mean(rmse)) %>% arrange(rmse) %>% mutate_if(is.factor, as.character)
     parallelMap::parallelStop()
     
-    D.lrn=setHyperPars(D.lrn,par.vals=D.tunedparams$x)
-    
-    # Train learner
-    D.mdl = train(task=D.task,learner=D.lrn)
-    
-    
-    # Evaluate predictions (mean squared error)
-    D.pred = predict(D.mdl, newdata = D)
-    performance(pred = D.pred, measures = rmse)
-    # Test improvement over standard learner
-    # D.lrn_def = D.lrn = makeLearner("regr.xgboost",id="noise_learner",
-    #                                 par.vals = list(
-    #                                   objective = "reg:linear",
-    #                                   nrounds = 50))
-    # resample(D.lrn_def,task = D.task,resampling = D.resDesc,measures = rmse)
-    # resample(D.lrn,task = D.task,resampling = D.resDesc,measures = rmse)
+    # Calculate lifepoints for learners
+    losertable = losertable %>% inner_join(nestedResamplingResults %>% select(learner.id,rmse),by="learner.id") %>% arrange(rmse) %>%
+      mutate(lifepoints = pmin(5,lifepoints + c(10,rep(-1,length(learners)-1)))) %>% select(learner.id,lifepoints)
+    # Kick out unsuccessful learners
+    if(nrow(losertable %>% filter(lifepoints<1))>0){
+    print("Kicking the following learners:")
+    print(paste((losertable %>% filter(lifepoints<1))$learner.id))
+    learners = learners[-(which(names(learners) %in% (losertable %>% filter(lifepoints<1))$learner.id))]
+    }
   }
   
+  # Choose best learner
+  f.lrn.best = learners[[as.character(nestedResamplingResults$learner.id[1])]]
+  print(paste("Best learner for this round is",f.lrn.best$id))
   
-  #### Select new observations to fetch from API, based on variance
-  # Compute model variance sigma²_^y_i (varpred) for every observation in grid
-  f1.grid.mdls.pred = lapply(1:length(f1.perf.best$models), function(m) {
-    data.frame(x=densegrid$x,y=densegrid$y,model=m,pred=predict(f1.perf.best$models[[m]], newdata = densegrid)$data$response)
-  })
-  f1.grid = do.call(rbind,f1.grid.mdls.pred)
-  f1.grid = f1.grid %>% group_by(x,y) %>%
-    summarize(meanpred = mean(pred),
-              varpred = var(pred))
+  # Adjust control strategy to have more iterations
+  f.lrn.best$control = makeTuneControlRandom(maxit=100)
   
-  # Estimate noise variance
-  if(include_noise){
-    D.pred = predict(D.mdl, newdata = densegrid)
-    f1.grid$varnoise = exp(D.pred$data$response)-0.0000000000001
-    } else {f1.grid$varnoise = 0}
+  # Train the model (automatically run hyperparameter tuning for best learner on whole dataset)
+  f.mdl.best = quiet(train(learner = f.lrn.best, task = f.task))
+
+  
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  # Benchmark current model
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  
+  print("Performing benchmarking")
+  
+  
+  # Calculate current performance estimate on given samples
+  bench.pred = predict(f.mdl.best, newdata = f.samples %>% select(x,y,z,f))
+  best.performance = performance(pred = bench.pred, measures = rmse)
+  benchbelieve = benchbelieve %>% union(data.frame(Round=round,Learner=f.mdl.best$learner$id,Believed_Perf=best.performance))
+  saveRDS(benchbelieve,paste(func,"benchbelieve.Rds"))
+  print(paste("Believed rmse value is", best.performance))
+  
+  # Save the current global best model
+  if(!exists("mdl.globalbest")){
+    print(paste("Initialize global best model with believed performance of rmse=",best.performance,sep=""))
+    mdl.globalbest = f.mdl.best
+  } else {
+    globalbest.pred =  predict(mdl.globalbest, newdata = f.samples %>% select(x,y,z,f))
+    globalbest.performance = performance(pred = globalbest.pred, measures = rmse)
     
-  # Add both model variance and noise variance together to get total variance
-  f1.grid = f1.grid %>% mutate(vartotal=varpred+varnoise)
+    
+    if(globalbest.performance>best.performance){
+      print(paste("New global best model with believed performance of rmse=",best.performance," (old model rmse=",globalbest.performance,")",sep=""))
+      mdl.formerbest = mdl.globalbest
+      mdl.globalbest = f.mdl.best
+    } else {
+      print(paste("Global best model remains with believed performance of rmse=",globalbest.performance," (current model rmse=",best.performance,")",sep=""))
+    }
+  }
   
-  #fplot(f1.grid,f = "vartotal")
+  # Plot evolution of believed performance
+  benchbelieve = benchbelieve %>% mutate(Learner=sub("regr.","",sub(".tuned","",Learner)))
+  ggplot(benchbelieve[-1,],aes(x=Round,y=Believed_Perf,color=Learner)) + geom_point() +
+    labs(x="Round",y="Rmse",title="Believed performance over rounds")
   
-  # Select observation(s) with highest total variance to be fetched from API
-  f1.grid = f1.grid %>% arrange(desc(vartotal))
-  # Leave out observations which have been fetched already
-  f1.fetch = (f1.grid %>% select(x,y) %>%
-                setdiff(f1.samples %>% select("x","y"))
-  )[1:new_observations_per_call,]
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  # Analyse informative value of each point
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+    
+  # Define resampling strategy
+  
+  loo = makeResampleDesc(method = "LOO", predict="both")
+  loo.learner = makeLearner(cl=getTuneResult(f.mdl.best)$learner$id,par.vals=getTuneResult(f.mdl.best)$x)
+  
+  # Resample best learner
+  print("Performing LOO resampling...")
+  
+  f.perf.best = quiet(resample(loo.learner, f.task, loo, measures = rmse, show.info=F))
+  
+  point_eval = 
+    f.perf.best$pred$data %>% filter(set=="test") %>%
+    select(id,iter) %>% inner_join(f.perf.best$measures.test,by="iter") %>%
+      inner_join(f.perf.best$measures.train,by="iter",suffix = c(".test",".train")) %>%
+      mutate(rmse.all = sqrt((rmse.test**2 + (rmse.train**2)*(max(f.perf.best$pred$data$id)-1))/max(f.perf.best$pred$data$id)))
+  point_eval = point_eval %>% arrange(id)
+  point_eval = cbind(f.samples %>% select(x,y,z),point_eval)
+  
+  D = point_eval %>% select(x,y,z,rmse.all)
+  D.task = makeRegrTask(data=D,target="rmse.all")
+  
+  # Make learner with hyperparameters to be tuned
+  D.lrn = makeTuneWrapper("regr.kknn",
+                          resampling = makeResampleDesc("CV", iters = 5),
+                          measures=rmse,
+                          par.set = makeParamSet(
+                            makeIntegerParam("k", lower = 2, upper = 20),
+                            makeDiscreteParam("kernel", values = c("rectangular","triangular","optimal"))
+                          ),
+                          control = makeTuneControlGrid(), show.info=F)
+  # Train learner
+  D.mdl = train(task=D.task,learner=D.lrn)
+  
+  # Predict importance on training data
+  D.pred = predict(D.mdl, newdata = D)
+  point_eval$estim = D.pred$data$response
+  
+  # Predict importance on new data
+  error_bench = densegrid
+  error_bench$estimrse = predict(D.mdl, newdata = error_bench %>% select(x,y,z))$data$response
+  
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  # Fetch new observations from API, based on error estimates
+  # ---------------------------------------------------------------------------------------------------------------------------------------------- .
+  
+  # Select points with possibly high importance to be fetched from API
+  error_bench = error_bench %>% arrange(desc(estimrse))
+  # Leave out points which have been fetched already
+  f.fetch = error_bench %>% select(x,y,z) %>%
+    setdiff(f.samples %>% select(x,y,z)) %>% inner_join(error_bench,by=c("x","y","z"))
+  
+  # Draw without replacement from potential points
+  f.fetch_n = sample_n(f.fetch,
+                        size=new_observations_per_call,
+                        weight=((f.fetch$estimrse-min(f.fetch$estimrse))**10)) %>% select(x,y,z)
+  f.fetch_n = f.fetch_n %>% inner_join(error_bench %>% select(x,y,z,estimrse),by=c("x","y","z")) 
+  
+  # Plot importance map
+  importanceplot(error_bench %>% rename(f=estimrse),querydata=f.fetch_n)
   
   # Call API and add new observations to sampleset
-  res = batch_apirequest(f1.fetch %>% select(x,y), 1, "api-test2D",call_counter)
-  f1.fetch$f1 = res[[1]]
+  res = batch_apirequest(f.fetch_n %>% select(x,y,z), func_i, api, call_counter)
+  f.fetch_n$f = res[[1]]
   call_counter = res[[2]]
+  saveRDS(f.samples,paste(func,"-samples-",call_counter,".Rds",sep=""))
+  saveRDS(error_bench,paste(func,"-infvalue-",call_counter,".Rds",sep=""))
+  saveRDS(f.fetch_n,paste(func,"-fetch_n-",call_counter,".Rds",sep=""))
   
-  f1.samples = f1.samples %>% union(f1.fetch)
-    
+  f.samples = f.samples %>% union(f.fetch_n)
+  round = round + 1
+  }
   
-}
-# LOOP
 
-bench.pred = predict(f1.mdl.best, newdata = benchmark)
-viz_benchmark = cbind(benchmark,bench.pred$data) %>% mutate(err=response-truth)
-fplot(viz_benchmark, f = "err")
-f1f2plot(viz_benchmark, f_1 = "truth", f_2="response",scaleit = F)
-
-viz_benchmark = viz_benchmark %>% mutate(color=50*(err-min(err))/(max(err)-min(err)))
-plot(viz_benchmark$x,viz_benchmark$y,col=viridisLite::viridis(50)[floor(viz_benchmark$color)])
-points(f1.samples$x,f1.samples$y)
-
-f1.grid = f1.grid %>% mutate(color=50*(vartotal-min(vartotal))/(max(vartotal)-min(vartotal)))
-plot(f1.grid$x,f1.grid$y,col=toCol(f1.grid$varnoise))
-
-plot(f1.predstat$x,f1.predstat$y,col=toCol(f1.predstat$rmse))
-fplot(f1.predstat,f = "rmse")
-
-toCol = function(x,resolution=50){
-  color=resolution*(x-min(x))/(max(x)-min(x))
-  viridisLite::viridis(resolution)[floor(color)]
 }
 
-# 
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Evaluation of Performance
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
 
-fplot(samples,f = "sdpred")
+benchbelieve = benchbelieve %>% mutate(Learner=sub("regr.","",sub(".tuned","",Learner)))
+ggplot(benchbelieve[-1,],aes(x=Round,y=Believed_Perf,color=Learner)) + geom_point() +
+  labs(x="Round",y="Rmse",title="Believed performance over rounds")
+
+# Show where samples have been fetched from
+sliceplot(f.samples)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Train final model
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+
+#Keep in mind to reset learner list
+parallelMap::parallelStartSocket(6)
+nestedResamplingResults = as.data.frame(benchmark(learners,f.task,outer,measures=rmse,show.info=FALSE,keep.pred=F,models=F),stringsAsFactors = F) %>%
+  group_by(learner.id) %>% summarize(rmse = mean(rmse)) %>% arrange(rmse) %>% mutate_if(is.factor, as.character)
+parallelMap::parallelStop()
+
+f.lrn.best = learners[[as.character(nestedResamplingResults$learner.id[1])]]
+f.lrn.best$control = makeTuneControlRandom(maxit=500)
+
+mdl.final = quiet(train(learner = f.lrn.best, task = f.task))
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+# Visualize results
+# ---------------------------------------------------------------------------------------------------------------------------------------------- .
+
+############ Samples
+# 3D plot                                                                                                                                             
+fplot(f.samples,f="f")
+
+# Slice plot
+sliceplot(f.samples)
+
+############ Final Model
+# 3D plot  
+fplot(finalmap,f="f")
+
+# Slice plot
+regulardensegrid = as.data.frame(expand.grid(seq(-5,5,length.out=25),seq(-5,5,length.out=25),seq(-4.9999,4.99999,length.out=25)))
+colnames(regulardensegrid) = c("x","y","z")
+finalpreds = predict(mdl.final,newdata=regulardensegrid)
+finalmap = cbind(regulardensegrid,finalpreds$data$response)%>%rename(f='finalpreds$data$response')
+sliceplot(finalmap)
